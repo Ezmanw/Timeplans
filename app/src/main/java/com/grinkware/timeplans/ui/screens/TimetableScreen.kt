@@ -1,6 +1,5 @@
 package com.grinkware.timeplans.ui.screens
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,7 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -74,7 +72,7 @@ fun TimetableScreen(viewModel: AppViewModel) {
             verticalArrangement = Arrangement.spacedBy(spacing.small)
         ) {
             // Day selector tabs
-            ScrollableTabRow(
+            SecondaryScrollableTabRow(
                 selectedTabIndex = selectedDayIndex - 1,
                 containerColor = MaterialTheme.colorScheme.background,
                 edgePadding = spacing.medium
@@ -481,7 +479,7 @@ fun LessonAddEditDialog(
     var weekType by remember { mutableStateOf(lesson?.weekType ?: "BOTH") }
     var periodType by remember { mutableStateOf(lesson?.periodType ?: "CLASS") }
 
-    var error by remember { mutableStateOf("") }
+    val dialogError = remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -492,39 +490,69 @@ fun LessonAddEditDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 item {
-                    if (error.isNotEmpty()) {
-                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    if (dialogError.value.isNotEmpty()) {
+                        Text(dialogError.value, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
                 }
 
                 item {
                     Text("Period Type", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Row(
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.small)
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        listOf(
-                            "CLASS" to "Class",
-                            "BREAK" to "Break",
-                            "LUNCH" to "Lunch",
-                            "ASSEMBLY" to "Assembly"
-                        ).forEach { (typeKey, label) ->
-                            FilterChip(
-                                selected = periodType == typeKey,
-                                onClick = { 
-                                    periodType = typeKey
-                                    if (name.trim().isEmpty() || name == "Break" || name == "Lunch" || name == "Assembly") {
-                                        name = when (typeKey) {
-                                            "BREAK" -> "Break"
-                                            "LUNCH" -> "Lunch"
-                                            "ASSEMBLY" -> "Assembly"
-                                            else -> ""
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(spacing.small)
+                        ) {
+                            listOf(
+                                "CLASS" to "Class",
+                                "BREAK" to "Break"
+                            ).forEach { (typeKey, label) ->
+                                FilterChip(
+                                    selected = periodType == typeKey,
+                                    onClick = { 
+                                        periodType = typeKey
+                                        if (name.trim().isEmpty() || name == "Break" || name == "Lunch" || name == "Assembly") {
+                                            name = when (typeKey) {
+                                                "BREAK" -> "Break"
+                                                "LUNCH" -> "Lunch"
+                                                "ASSEMBLY" -> "Assembly"
+                                                else -> ""
+                                            }
                                         }
-                                    }
-                                },
-                                label = { Text(label) }
-                            )
+                                    },
+                                    label = { Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Text(label) } },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(spacing.small)
+                        ) {
+                            listOf(
+                                "LUNCH" to "Lunch",
+                                "ASSEMBLY" to "Assembly"
+                            ).forEach { (typeKey, label) ->
+                                FilterChip(
+                                    selected = periodType == typeKey,
+                                    onClick = { 
+                                        periodType = typeKey
+                                        if (name.trim().isEmpty() || name == "Break" || name == "Lunch" || name == "Assembly") {
+                                            name = when (typeKey) {
+                                                "BREAK" -> "Break"
+                                                "LUNCH" -> "Lunch"
+                                                "ASSEMBLY" -> "Assembly"
+                                                else -> ""
+                                            }
+                                        }
+                                    },
+                                    label = { Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Text(label) } },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
                     }
                 }
@@ -664,17 +692,17 @@ fun LessonAddEditDialog(
         confirmButton = {
             TextButton(onClick = {
                 if (name.trim().isEmpty()) {
-                    error = "Name is required"
+                    dialogError.value = "Name is required"
                     return@TextButton
                 }
                 val startMins = parseTimeToMinutes(startStr)
                 val endMins = parseTimeToMinutes(endStr)
                 if (startMins == null || endMins == null) {
-                    error = "Timings must be in HH:MM format"
+                    dialogError.value = "Timings must be in HH:MM format"
                     return@TextButton
                 }
                 if (startMins >= endMins) {
-                    error = "End time must be after start time"
+                    dialogError.value = "End time must be after start time"
                     return@TextButton
                 }
 
