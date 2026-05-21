@@ -227,21 +227,12 @@ fun TimetableScreen(viewModel: AppViewModel) {
             title = { Text(currentLesson.name) },
             text = { Text("Choose an action for this class.") },
             confirmButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = {
-                        showActionDialog.value = false
-                        selectedLessonForEdit.value = currentLesson.copy(id = 0L)
-                        showAddEditDialog.value = true
-                    }) {
-                        Text("Duplicate")
-                    }
-                    TextButton(onClick = {
-                        showActionDialog.value = false
-                        selectedLessonForEdit.value = currentLesson
-                        showAddEditDialog.value = true
-                    }) {
-                        Text("Edit")
-                    }
+                TextButton(onClick = {
+                    showActionDialog.value = false
+                    selectedLessonForEdit.value = currentLesson
+                    showAddEditDialog.value = true
+                }) {
+                    Text("Edit Properties")
                 }
             },
             dismissButton = {
@@ -521,7 +512,7 @@ fun LessonAddEditDialog(
                             ).forEach { (typeKey, label) ->
                                 FilterChip(
                                     selected = periodType == typeKey,
-                                    onClick = { 
+                                    onClick = {
                                         periodType = typeKey
                                         if (name.trim().isEmpty() || name == "Break" || name == "Lunch" || name == "Assembly") {
                                             name = when (typeKey) {
@@ -547,7 +538,7 @@ fun LessonAddEditDialog(
                             ).forEach { (typeKey, label) ->
                                 FilterChip(
                                     selected = periodType == typeKey,
-                                    onClick = { 
+                                    onClick = {
                                         periodType = typeKey
                                         if (name.trim().isEmpty() || name == "Break" || name == "Lunch" || name == "Assembly") {
                                             name = when (typeKey) {
