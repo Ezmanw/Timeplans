@@ -1,15 +1,12 @@
 package com.grinkware.timeplans.ui.screens
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.DateRange
@@ -32,6 +29,7 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(viewModel: AppViewModel) {
     val tasks = viewModel.tasks.value
@@ -46,6 +44,18 @@ fun TasksScreen(viewModel: AppViewModel) {
     val showAddHomeworkDialog = remember { mutableStateOf(false) }
     val showAddExamDialog = remember { mutableStateOf(false) }
     val showAddRevisionDialog = remember { mutableStateOf(false) }
+
+    // Sorting state
+    var sortBy by remember { mutableStateOf("DUE_ASC") }
+    val priorityWeight = mapOf("HIGH" to 0, "MEDIUM" to 1, "LOW" to 2)
+
+    val filteredSortedTasks = remember(tasks, sortBy) {
+        when (sortBy) {
+            "DUE_DESC" -> tasks.sortedByDescending { it.dueDate }
+            "PRIORITY" -> tasks.sortedWith(compareBy({ priorityWeight[it.priority] ?: 1 }, { it.dueDate }))
+            else -> tasks.sortedBy { it.dueDate }
+        }
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -70,7 +80,7 @@ fun TasksScreen(viewModel: AppViewModel) {
                 .padding(paddingValues),
             verticalArrangement = Arrangement.spacedBy(spacing.small)
         ) {
-            TabRow(
+            PrimaryTabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = MaterialTheme.colorScheme.background
             ) {
@@ -83,6 +93,25 @@ fun TasksScreen(viewModel: AppViewModel) {
                 }
             }
 
+            if (selectedTabIndex == 0 || selectedTabIndex == 2) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = spacing.medium),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Sort:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    listOf("DUE_ASC" to "Due date (Soonest)", "DUE_DESC" to "Due date (Latest)", "PRIORITY" to "Priority").forEach { (option, label) ->
+                        FilterChip(
+                            selected = sortBy == option,
+                            onClick = { sortBy = option },
+                            label = { Text(label, fontSize = 10.sp) }
+                        )
+                    }
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -91,7 +120,7 @@ fun TasksScreen(viewModel: AppViewModel) {
             ) {
                 when (selectedTabIndex) {
                     0 -> HomeworkList(
-                        tasks = tasks.filter { it.taskType == "HOMEWORK" },
+                        tasks = filteredSortedTasks.filter { it.taskType == "HOMEWORK" },
                         lessons = lessons,
                         spacing = spacing,
                         onToggle = { viewModel.toggleTask(it) },
@@ -103,7 +132,7 @@ fun TasksScreen(viewModel: AppViewModel) {
                         onDelete = { viewModel.deleteExam(it) }
                     )
                     2 -> RevisionList(
-                        tasks = tasks.filter { it.taskType == "REVISION" },
+                        tasks = filteredSortedTasks.filter { it.taskType == "REVISION" },
                         spacing = spacing,
                         onToggle = { viewModel.toggleTask(it) },
                         onDelete = { viewModel.deleteTask(it.id) }
@@ -118,14 +147,15 @@ fun TasksScreen(viewModel: AppViewModel) {
         AddHomeworkDialog(
             lessons = lessons,
             onDismiss = { showAddHomeworkDialog.value = false },
-            onSave = { title, desc, date, lessonId ->
+            onSave = { title, desc, date, lessonId, priority ->
                 viewModel.addTask(
                     TaskItem(
                         title = title,
                         description = desc,
                         dueDate = date,
                         lessonId = lessonId,
-                        taskType = "HOMEWORK"
+                        taskType = "HOMEWORK",
+                        priority = priority
                     )
                 )
                 showAddHomeworkDialog.value = false
@@ -156,13 +186,14 @@ fun TasksScreen(viewModel: AppViewModel) {
     if (showAddRevisionDialog.value) {
         AddRevisionDialog(
             onDismiss = { showAddRevisionDialog.value = false },
-            onSave = { topic, desc, date ->
+            onSave = { topic, desc, date, priority ->
                 viewModel.addTask(
                     TaskItem(
                         title = topic,
                         description = desc,
                         dueDate = date,
-                        taskType = "REVISION"
+                        taskType = "REVISION",
+                        priority = priority
                     )
                 )
                 showAddRevisionDialog.value = false
@@ -240,6 +271,25 @@ fun HomeworkList(
                                         text = "Due: ${task.dueDate}",
                                         fontSize = 10.sp,
                                         color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                val priorityColor = when (task.priority) {
+                                    "HIGH" -> Color(0xFFD32F2F)
+                                    "MEDIUM" -> Color(0xFFF57C00)
+                                    "LOW" -> Color(0xFF388E3C)
+                                    else -> Color.Gray
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(priorityColor.copy(alpha = 0.15f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = task.priority,
+                                        fontSize = 10.sp,
+                                        color = priorityColor,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -324,7 +374,7 @@ fun ExamCard(
                         countdownText = "${days}d ${hours}h ${mins}m ${secs}s"
                     }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 countdownText = "Error"
             }
             delay(1000)
@@ -457,19 +507,42 @@ fun RevisionList(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "Date: ${task.dueDate}",
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "Date: ${task.dueDate}",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                val priorityColor = when (task.priority) {
+                                    "HIGH" -> Color(0xFFD32F2F)
+                                    "MEDIUM" -> Color(0xFFF57C00)
+                                    "LOW" -> Color(0xFF388E3C)
+                                    else -> Color.Gray
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(priorityColor.copy(alpha = 0.15f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = task.priority,
+                                        fontSize = 10.sp,
+                                        color = priorityColor,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
 
@@ -513,7 +586,7 @@ fun EmptyState(text: String, spacing: com.grinkware.timeplans.ui.theme.Spacing) 
 fun AddHomeworkDialog(
     lessons: List<Lesson>,
     onDismiss: () -> Unit,
-    onSave: (String, String, String, Long?) -> Unit
+    onSave: (String, String, String, Long?, String) -> Unit
 ) {
     val spacing = LocalSpacing.current
     var title by remember { mutableStateOf("") }
@@ -524,9 +597,10 @@ fun AddHomeworkDialog(
     }
     var date by remember { mutableStateOf(defaultDateStr) }
     var linkedLessonId by remember { mutableStateOf<Long?>(null) }
+    var priority by remember { mutableStateOf("MEDIUM") }
     var expanded by remember { mutableStateOf(false) }
 
-    var error by remember { mutableStateOf("") }
+    val error = remember { mutableStateOf("") }
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val calendar = Calendar.getInstance()
@@ -534,7 +608,7 @@ fun AddHomeworkDialog(
         android.app.DatePickerDialog(
             context,
             { _, year, month, dayOfMonth ->
-                date = String.format("%04d-%02d-%02d", year, month + 1, dayOfMonth)
+                date = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, dayOfMonth)
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
@@ -547,8 +621,8 @@ fun AddHomeworkDialog(
         title = { Text("Add Homework") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
-                if (error.isNotEmpty()) {
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                if (error.value.isNotEmpty()) {
+                    Text(error.value, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
 
                 OutlinedTextField(
@@ -580,6 +654,32 @@ fun AddHomeworkDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                Text("Priority Level", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    listOf("HIGH", "MEDIUM", "LOW").forEach { level ->
+                        val isSelected = priority == level
+                        val color = when (level) {
+                            "HIGH" -> Color(0xFFD32F2F)
+                            "MEDIUM" -> Color(0xFFF57C00)
+                            "LOW" -> Color(0xFF388E3C)
+                            else -> Color.Gray
+                        }
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { priority = level },
+                            label = { Text(level, fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = color.copy(alpha = 0.2f),
+                                selectedLabelColor = color,
+                                selectedLeadingIconColor = color
+                            )
+                        )
+                    }
+                }
+
                 // Lesson Link Dropdown
                 Box(modifier = Modifier.fillMaxWidth()) {
                     val activeLessonName = lessons.find { it.id == linkedLessonId }?.name ?: "Link to Subject/Lesson"
@@ -598,8 +698,8 @@ fun AddHomeworkDialog(
                         DropdownMenuItem(
                             text = { Text("None") },
                             onClick = {
-                                linkedLessonId = null
-                                expanded = false
+                                  linkedLessonId = null
+                                  expanded = false
                             }
                         )
                         lessons.distinctBy { it.name }.forEach { lesson ->
@@ -618,10 +718,10 @@ fun AddHomeworkDialog(
         confirmButton = {
             TextButton(onClick = {
                 if (title.trim().isEmpty()) {
-                    error = "Title is required"
+                    error.value = "Title is required"
                     return@TextButton
                 }
-                onSave(title, desc, date, linkedLessonId)
+                onSave(title, desc, date, linkedLessonId, priority)
             }) {
                 Text("Save")
             }
@@ -646,15 +746,15 @@ fun AddExamDialog(
     var room by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
 
-    var error by remember { mutableStateOf("") }
+    val error = remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Exam") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
-                if (error.isNotEmpty()) {
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                if (error.value.isNotEmpty()) {
+                    Text(error.value, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
 
                 OutlinedTextField(
@@ -701,7 +801,7 @@ fun AddExamDialog(
         confirmButton = {
             TextButton(onClick = {
                 if (subject.trim().isEmpty()) {
-                    error = "Subject is required"
+                    error.value = "Subject is required"
                     return@TextButton
                 }
                 onSave(subject, date, time, room, notes)
@@ -720,22 +820,23 @@ fun AddExamDialog(
 @Composable
 fun AddRevisionDialog(
     onDismiss: () -> Unit,
-    onSave: (String, String, String) -> Unit
+    onSave: (String, String, String, String) -> Unit
 ) {
     val spacing = LocalSpacing.current
     var topic by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
     var date by remember { mutableStateOf("2026-05-20") }
+    var priority by remember { mutableStateOf("MEDIUM") }
 
-    var error by remember { mutableStateOf("") }
+    val error = remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Revision Task") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
-                if (error.isNotEmpty()) {
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                if (error.value.isNotEmpty()) {
+                    Text(error.value, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
 
                 OutlinedTextField(
@@ -760,15 +861,41 @@ fun AddRevisionDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                Text("Priority Level", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    listOf("HIGH", "MEDIUM", "LOW").forEach { level ->
+                        val isSelected = priority == level
+                        val color = when (level) {
+                            "HIGH" -> Color(0xFFD32F2F)
+                            "MEDIUM" -> Color(0xFFF57C00)
+                            "LOW" -> Color(0xFF388E3C)
+                            else -> Color.Gray
+                        }
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { priority = level },
+                            label = { Text(level, fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = color.copy(alpha = 0.2f),
+                                selectedLabelColor = color,
+                                selectedLeadingIconColor = color
+                            )
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = {
                 if (topic.trim().isEmpty()) {
-                    error = "Topic is required"
+                    error.value = "Topic is required"
                     return@TextButton
                 }
-                onSave(topic, desc, date)
+                onSave(topic, desc, date, priority)
             }) {
                 Text("Save")
             }

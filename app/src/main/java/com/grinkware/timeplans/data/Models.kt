@@ -31,7 +31,7 @@ data class Lesson(
     private fun formatMinutes(minutes: Int): String {
         val hrs = minutes / 60
         val mins = minutes % 60
-        return String.format("%02d:%02d", hrs, mins)
+        return String.format(java.util.Locale.getDefault(), "%02d:%02d", hrs, mins)
     }
 }
 
@@ -42,13 +42,6 @@ data class AttendanceRecord(
     val notes: String = ""
 )
 
-data class SubjectAttendance(
-    val id: Long = 0,
-    val date: String, // YYYY-MM-DD
-    val lessonId: Long,
-    val status: String // "PRESENT", "ABSENT", "LATE"
-)
-
 data class TaskItem(
     val id: Long = 0,
     val lessonId: Long? = null,
@@ -56,7 +49,8 @@ data class TaskItem(
     val description: String = "",
     val dueDate: String, // YYYY-MM-DD
     val isCompleted: Boolean = false,
-    val taskType: String = "HOMEWORK" // "HOMEWORK", "REVISION", "EXAM"
+    val taskType: String = "HOMEWORK", // "HOMEWORK", "REVISION", "EXAM"
+    val priority: String = "MEDIUM" // "HIGH", "MEDIUM", "LOW"
 )
 
 data class ExamItem(
@@ -86,5 +80,45 @@ data class AppSettings(
     val showNotifications: Boolean = true,
     val endOfYearDate: String = "2026-07-20", // Default end of year
     val alarmLeadMinutes: Int = 10,
-    val onboardingCompleted: Boolean = false
+    val onboardingCompleted: Boolean = false,
+    val todayWidgetOrder: String = "TIMELINE,COUNTDOWN,HERO,ATTENDANCE,INSIGHTS,DEADLINES",
+    val todayWidgetVisibility: String = "TIMELINE,COUNTDOWN,HERO,ATTENDANCE,INSIGHTS,DEADLINES"
 )
+
+data class GradeEntry(
+    val id: Long = 0,
+    val subject: String,
+    val title: String,
+    val score: Double,
+    val maxScore: Double,
+    val weight: Double = 1.0,
+    val date: String // YYYY-MM-DD
+) {
+    val percentage: Double
+        get() = if (maxScore > 0) (score / maxScore) * 100.0 else 0.0
+}
+
+data class StudySession(
+    val id: Long = 0,
+    val subject: String,
+    val durationMinutes: Int,
+    val date: String, // YYYY-MM-DD
+    val rating: Int = 0, // 0 to 5
+    val reflection: String = ""
+)
+
+data class Flashcard(
+    val id: Long = 0,
+    val subject: String,
+    val front: String,
+    val back: String,
+    val box: Int = 1, // 1 to 5
+    val lastReviewed: String = "" // YYYY-MM-DD
+)
+
+data class StudyTarget(
+    val id: Long = 0,
+    val subject: String,
+    val targetMinutes: Int
+)
+

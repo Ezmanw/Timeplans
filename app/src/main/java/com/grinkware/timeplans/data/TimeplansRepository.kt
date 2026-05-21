@@ -3,6 +3,11 @@ package com.grinkware.timeplans.data
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
+import android.util.Base64
+import org.json.JSONArray
+import org.json.JSONObject
+import java.nio.charset.StandardCharsets
+import androidx.core.database.sqlite.transaction
 
 class TimeplansRepository(context: Context) {
     private val dbHelper = DatabaseHelper(context)
@@ -55,13 +60,9 @@ class TimeplansRepository(context: Context) {
 
     fun setActiveTimetable(timetableId: Long) {
         val db = dbHelper.writableDatabase
-        db.beginTransaction()
-        try {
-            db.execSQL("UPDATE timetables SET is_active = 0")
-            db.execSQL("UPDATE timetables SET is_active = 1 WHERE id = ?", arrayOf(timetableId))
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
+        db.transaction {
+            execSQL("UPDATE timetables SET is_active = 0")
+            execSQL("UPDATE timetables SET is_active = 1 WHERE id = ?", arrayOf(timetableId))
         }
     }
 
@@ -72,11 +73,10 @@ class TimeplansRepository(context: Context) {
 
     fun duplicateTimetable(sourceId: Long, newYearName: String): Long {
         val db = dbHelper.writableDatabase
-        db.beginTransaction()
-        try {
+        return db.transaction {
             // Find source timetable
             var hasTwoWeeks = false
-            val tCursor = db.rawQuery("SELECT has_two_weeks FROM timetables WHERE id = ?", arrayOf(sourceId.toString()))
+            val tCursor = rawQuery("SELECT has_two_weeks FROM timetables WHERE id = ?", arrayOf(sourceId.toString()))
             if (tCursor.moveToFirst()) {
                 hasTwoWeeks = tCursor.getInt(0) == 1
             }
@@ -88,10 +88,10 @@ class TimeplansRepository(context: Context) {
                 put("has_two_weeks", if (hasTwoWeeks) 1 else 0)
                 put("is_active", 0)
             }
-            val newId = db.insert("timetables", null, values)
+            val newId = insert("timetables", null, values)
 
             // Copy all lessons
-            val lCursor = db.rawQuery(
+            val lCursor = rawQuery(
                 "SELECT name, teacher, room, day_of_week, start_time, end_time, color, notes, homework_link, week_type, period_type FROM lessons WHERE timetable_id = ?",
                 arrayOf(sourceId.toString())
             )
@@ -110,14 +110,10 @@ class TimeplansRepository(context: Context) {
                     put("week_type", lCursor.getString(9))
                     put("period_type", lCursor.getString(10) ?: "CLASS")
                 }
-                db.insert("lessons", null, lValues)
+                insert("lessons", null, lValues)
             }
             lCursor.close()
-
-            db.setTransactionSuccessful()
-            return newId
-        } finally {
-            db.endTransaction()
+            newId
         }
     }
 
@@ -223,23 +219,6 @@ class TimeplansRepository(context: Context) {
         cursor.close()
         return list
     }
-
-    fun getAttendanceForDate(date: String): AttendanceRecord? {
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT id, date, status, notes FROM attendance WHERE date = ?", arrayOf(date))
-        var record: AttendanceRecord? = null
-        if (cursor.moveToFirst()) {
-            record = AttendanceRecord(
-                id = cursor.getLong(0),
-                date = cursor.getString(1),
-                status = cursor.getString(2),
-                notes = cursor.getString(3) ?: ""
-            )
-        }
-        cursor.close()
-        return record
-    }
-
     fun saveAttendanceRecord(date: String, status: String, notes: String = "") {
         val db = dbHelper.writableDatabase
         val values = ContentValues().apply {
@@ -250,35 +229,7 @@ class TimeplansRepository(context: Context) {
         db.insertWithOnConflict("attendance", null, values, android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
     }
 
-    // --- SUBJECT-SPECIFIC ATTENDANCE ---
 
-    fun getSubjectAttendance(date: String): List<SubjectAttendance> {
-        val list = mutableListOf<SubjectAttendance>()
-        val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT id, date, lesson_id, status FROM subject_attendance WHERE date = ?", arrayOf(date))
-        while (cursor.moveToNext()) {
-            list.add(
-                SubjectAttendance(
-                    id = cursor.getLong(0),
-                    date = cursor.getString(1),
-                    lessonId = cursor.getLong(2),
-                    status = cursor.getString(3)
-                )
-            )
-        }
-        cursor.close()
-        return list
-    }
-
-    fun saveSubjectAttendance(date: String, lessonId: Long, status: String) {
-        val db = dbHelper.writableDatabase
-        val values = ContentValues().apply {
-            put("date", date)
-            put("lesson_id", lessonId)
-            put("status", status)
-        }
-        db.insertWithOnConflict("subject_attendance", null, values, android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
-    }
 
     fun getSubjectAttendanceStats(timetableId: Long): List<SubjectStats> {
         val stats = mutableListOf<SubjectStats>()
@@ -317,7 +268,7 @@ class TimeplansRepository(context: Context) {
     fun getTasks(): List<TaskItem> {
         val list = mutableListOf<TaskItem>()
         val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT id, lesson_id, title, description, due_date, is_completed, task_type FROM tasks ORDER BY due_date ASC", null)
+        val cursor = db.rawQuery("SELECT id, lesson_id, title, description, due_date, is_completed, task_type, priority FROM tasks ORDER BY due_date ASC", null)
         while (cursor.moveToNext()) {
             list.add(
                 TaskItem(
@@ -327,7 +278,8 @@ class TimeplansRepository(context: Context) {
                     description = cursor.getString(3) ?: "",
                     dueDate = cursor.getString(4),
                     isCompleted = cursor.getInt(5) == 1,
-                    taskType = cursor.getString(6)
+                    taskType = cursor.getString(6),
+                    priority = cursor.getString(7) ?: "MEDIUM"
                 )
             )
         }
@@ -344,6 +296,7 @@ class TimeplansRepository(context: Context) {
             put("due_date", task.dueDate)
             put("is_completed", if (task.isCompleted) 1 else 0)
             put("task_type", task.taskType)
+            put("priority", task.priority)
         }
         return db.insert("tasks", null, values)
     }
@@ -357,6 +310,7 @@ class TimeplansRepository(context: Context) {
             put("due_date", task.dueDate)
             put("is_completed", if (task.isCompleted) 1 else 0)
             put("task_type", task.taskType)
+            put("priority", task.priority)
         }
         db.update("tasks", values, "id = ?", arrayOf(task.id.toString()))
     }
@@ -400,17 +354,6 @@ class TimeplansRepository(context: Context) {
         return db.insert("exams", null, values)
     }
 
-    fun updateExam(exam: ExamItem) {
-        val db = dbHelper.writableDatabase
-        val values = ContentValues().apply {
-            put("subject", exam.subject)
-            put("date", exam.date)
-            put("time", exam.time)
-            put("room", exam.room)
-            put("notes", exam.notes)
-        }
-        db.update("exams", values, "id = ?", arrayOf(exam.id.toString()))
-    }
 
     fun deleteExam(examId: Long) {
         val db = dbHelper.writableDatabase
@@ -460,7 +403,7 @@ class TimeplansRepository(context: Context) {
 
     fun getSettings(): AppSettings {
         val db = dbHelper.readableDatabase
-        val cursor = db.rawQuery("SELECT key, value FROM settings", null)
+        val cursor = db.rawQuery("SELECT \"key\", value FROM settings", null)
         var darkMode = "AUTO"
         var amoledMode = false
         var dynamicTheme = true
@@ -470,6 +413,8 @@ class TimeplansRepository(context: Context) {
         var endOfYearDate = "2026-07-20"
         var alarmLeadMinutes = 10
         var onboardingCompleted = false
+        var todayWidgetOrder = "TIMELINE,COUNTDOWN,HERO,ATTENDANCE,INSIGHTS,DEADLINES"
+        var todayWidgetVisibility = "TIMELINE,COUNTDOWN,HERO,ATTENDANCE,INSIGHTS,DEADLINES"
 
         while (cursor.moveToNext()) {
             val key = cursor.getString(0)
@@ -484,6 +429,8 @@ class TimeplansRepository(context: Context) {
                 "endOfYearDate" -> endOfYearDate = value
                 "alarmLeadMinutes" -> alarmLeadMinutes = value.toIntOrNull() ?: 10
                 "onboardingCompleted" -> onboardingCompleted = value == "1" || value == "true"
+                "todayWidgetOrder" -> todayWidgetOrder = value
+                "todayWidgetVisibility" -> todayWidgetVisibility = value
             }
         }
         cursor.close()
@@ -496,7 +443,9 @@ class TimeplansRepository(context: Context) {
             showNotifications = showNotifications,
             endOfYearDate = endOfYearDate,
             alarmLeadMinutes = alarmLeadMinutes,
-            onboardingCompleted = onboardingCompleted
+            onboardingCompleted = onboardingCompleted,
+            todayWidgetOrder = todayWidgetOrder,
+            todayWidgetVisibility = todayWidgetVisibility
         )
     }
 
@@ -507,6 +456,335 @@ class TimeplansRepository(context: Context) {
             put("value", value)
         }
         db.insertWithOnConflict("settings", null, values, android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    // --- GRADES ---
+
+    fun getGrades(): List<GradeEntry> {
+        val list = mutableListOf<GradeEntry>()
+        val db = dbHelper.readableDatabase
+        val cursor = db.rawQuery("SELECT id, subject, title, score, max_score, weight, date FROM grades ORDER BY date DESC", null)
+        while (cursor.moveToNext()) {
+            list.add(
+                GradeEntry(
+                    id = cursor.getLong(0),
+                    subject = cursor.getString(1),
+                    title = cursor.getString(2),
+                    score = cursor.getDouble(3),
+                    maxScore = cursor.getDouble(4),
+                    weight = cursor.getDouble(5),
+                    date = cursor.getString(6)
+                )
+            )
+        }
+        cursor.close()
+        return list
+    }
+
+    fun saveGrade(grade: GradeEntry): Long {
+        val db = dbHelper.writableDatabase
+        val values = ContentValues().apply {
+            if (grade.id > 0) {
+                put("id", grade.id)
+            }
+            put("subject", grade.subject)
+            put("title", grade.title)
+            put("score", grade.score)
+            put("max_score", grade.maxScore)
+            put("weight", grade.weight)
+            put("date", grade.date)
+        }
+        return db.insertWithOnConflict("grades", null, values, android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun deleteGrade(gradeId: Long) {
+        val db = dbHelper.writableDatabase
+        db.delete("grades", "id = ?", arrayOf(gradeId.toString()))
+    }
+
+    // --- STUDY SESSIONS ---
+
+    fun getStudySessions(): List<StudySession> {
+        val list = mutableListOf<StudySession>()
+        val db = dbHelper.readableDatabase
+        val cursor = db.rawQuery("SELECT id, subject, duration_minutes, date, rating, reflection FROM study_sessions ORDER BY date DESC", null)
+        while (cursor.moveToNext()) {
+            list.add(
+                StudySession(
+                    id = cursor.getLong(0),
+                    subject = cursor.getString(1),
+                    durationMinutes = cursor.getInt(2),
+                    date = cursor.getString(3),
+                    rating = cursor.getInt(4),
+                    reflection = cursor.getString(5) ?: ""
+                )
+            )
+        }
+        cursor.close()
+        return list
+    }
+
+    fun saveStudySession(session: StudySession): Long {
+        val db = dbHelper.writableDatabase
+        val values = ContentValues().apply {
+            if (session.id > 0) {
+                put("id", session.id)
+            }
+            put("subject", session.subject)
+            put("duration_minutes", session.durationMinutes)
+            put("date", session.date)
+            put("rating", session.rating)
+            put("reflection", session.reflection)
+        }
+        return db.insertWithOnConflict("study_sessions", null, values, android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun deleteStudySession(sessionId: Long) {
+        val db = dbHelper.writableDatabase
+        db.delete("study_sessions", "id = ?", arrayOf(sessionId.toString()))
+    }
+
+    // --- FLASHCARDS ---
+
+    fun getFlashcards(): List<Flashcard> {
+        val list = mutableListOf<Flashcard>()
+        val db = dbHelper.readableDatabase
+        val cursor = db.rawQuery("SELECT id, subject, front, back, box, last_reviewed FROM flashcards ORDER BY id DESC", null)
+        while (cursor.moveToNext()) {
+            list.add(
+                Flashcard(
+                    id = cursor.getLong(0),
+                    subject = cursor.getString(1),
+                    front = cursor.getString(2),
+                    back = cursor.getString(3),
+                    box = cursor.getInt(4),
+                    lastReviewed = cursor.getString(5) ?: ""
+                )
+            )
+        }
+        cursor.close()
+        return list
+    }
+
+    fun saveFlashcard(flashcard: Flashcard): Long {
+        val db = dbHelper.writableDatabase
+        val values = ContentValues().apply {
+            if (flashcard.id > 0) {
+                put("id", flashcard.id)
+            }
+            put("subject", flashcard.subject)
+            put("front", flashcard.front)
+            put("back", flashcard.back)
+            put("box", flashcard.box)
+            put("last_reviewed", flashcard.lastReviewed)
+        }
+        return db.insertWithOnConflict("flashcards", null, values, android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun deleteFlashcard(flashcardId: Long) {
+        val db = dbHelper.writableDatabase
+        db.delete("flashcards", "id = ?", arrayOf(flashcardId.toString()))
+    }
+
+    // --- STUDY TARGETS ---
+
+    fun getStudyTargets(): List<StudyTarget> {
+        val list = mutableListOf<StudyTarget>()
+        val db = dbHelper.readableDatabase
+        val cursor = db.rawQuery("SELECT id, subject, target_minutes FROM study_targets", null)
+        while (cursor.moveToNext()) {
+            list.add(
+                StudyTarget(
+                    id = cursor.getLong(0),
+                    subject = cursor.getString(1),
+                    targetMinutes = cursor.getInt(2)
+                )
+            )
+        }
+        cursor.close()
+        return list
+    }
+
+    fun saveStudyTarget(target: StudyTarget): Long {
+        val db = dbHelper.writableDatabase
+        val values = ContentValues().apply {
+            if (target.id > 0) {
+                put("id", target.id)
+            }
+            put("subject", target.subject)
+            put("target_minutes", target.targetMinutes)
+        }
+        return db.insertWithOnConflict("study_targets", null, values, android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun deleteStudyTarget(subject: String) {
+        val db = dbHelper.writableDatabase
+        db.delete("study_targets", "subject = ?", arrayOf(subject))
+    }
+
+    fun backupAllDataJSON(): String {
+        val backupJson = JSONObject()
+        val db = dbHelper.readableDatabase
+        val tables = listOf(
+            "timetables", "lessons", "attendance", "subject_attendance",
+            "tasks", "exams", "lesson_overrides", "settings",
+            "grades", "study_sessions", "flashcards", "study_targets"
+        )
+        
+        for (table in tables) {
+            val tableArray = JSONArray()
+            val cursor = db.rawQuery("SELECT * FROM $table", null)
+            val columnNames = cursor.columnNames
+            while (cursor.moveToNext()) {
+                val row = JSONObject()
+                for (i in columnNames.indices) {
+                    val columnName = columnNames[i]
+                    if (cursor.isNull(i)) {
+                        row.put(columnName, JSONObject.NULL)
+                    } else {
+                        when (cursor.getType(i)) {
+                            Cursor.FIELD_TYPE_INTEGER -> row.put(columnName, cursor.getLong(i))
+                            Cursor.FIELD_TYPE_FLOAT -> row.put(columnName, cursor.getDouble(i))
+                            Cursor.FIELD_TYPE_STRING -> row.put(columnName, cursor.getString(i))
+                            Cursor.FIELD_TYPE_BLOB -> {
+                                val blob = cursor.getBlob(i)
+                                val base64Blob = Base64.encodeToString(blob, Base64.DEFAULT)
+                                row.put(columnName, base64Blob)
+                            }
+                            else -> row.put(columnName, cursor.getString(i))
+                        }
+                    }
+                }
+                tableArray.put(row)
+            }
+            cursor.close()
+            backupJson.put(table, tableArray)
+        }
+        
+        val jsonStr = backupJson.toString()
+        return Base64.encodeToString(jsonStr.toByteArray(StandardCharsets.UTF_8), Base64.NO_WRAP or Base64.URL_SAFE)
+    }
+
+    fun restoreAllDataJSON(backupCode: String): Boolean {
+        val db = dbHelper.writableDatabase
+        return try {
+            db.transaction {
+                val decodedBytes = Base64.decode(backupCode, Base64.DEFAULT)
+                val jsonStr = String(decodedBytes, StandardCharsets.UTF_8)
+                val backupJson = JSONObject(jsonStr)
+                
+                val tables = listOf(
+                    "timetables", "lessons", "attendance", "subject_attendance",
+                    "tasks", "exams", "lesson_overrides", "settings",
+                    "grades", "study_sessions", "flashcards", "study_targets"
+                )
+                
+                // Delete all rows in reverse order to respect foreign keys
+                val deleteTables = listOf(
+                    "study_targets", "flashcards", "study_sessions", "grades",
+                    "settings", "lesson_overrides", "exams", "tasks",
+                    "subject_attendance", "attendance", "lessons", "timetables"
+                )
+                for (table in deleteTables) {
+                    delete(table, null, null)
+                }
+                
+                // Insert all rows in forward order to respect foreign keys
+                for (table in tables) {
+                    if (!backupJson.has(table)) continue
+                    val tableArray = backupJson.getJSONArray(table)
+                    for (i in 0 until tableArray.length()) {
+                        val row = tableArray.getJSONObject(i)
+                        val values = ContentValues()
+                        val keys = row.keys()
+                        while (keys.hasNext()) {
+                            val key = keys.next()
+                            val value = row.get(key)
+                            if (value == JSONObject.NULL) {
+                                values.putNull(key)
+                            } else if (value is Long || value is Int) {
+                                values.put(key, (value as Number).toLong())
+                            } else if (value is Double) {
+                                values.put(key, value)
+                            } else if (value is Boolean) {
+                                values.put(key, if (value) 1 else 0)
+                            } else {
+                                values.put(key, value.toString())
+                            }
+                        }
+                        insert(table, null, values)
+                    }
+                }
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    fun getLocalRestorePoints(): List<Pair<String, String>> {
+        val db = dbHelper.readableDatabase
+        val list = mutableListOf<Pair<String, String>>()
+        for (i in 1..3) {
+            val cursorTime = db.rawQuery("SELECT value FROM settings WHERE \"key\" = ?", arrayOf("backup_${i}_time"))
+            var time = ""
+            if (cursorTime.moveToFirst()) {
+                time = cursorTime.getString(0)
+            }
+            cursorTime.close()
+            
+            val cursorCode = db.rawQuery("SELECT value FROM settings WHERE \"key\" = ?", arrayOf("backup_${i}_code"))
+            var code = ""
+            if (cursorCode.moveToFirst()) {
+                code = cursorCode.getString(0)
+            }
+            cursorCode.close()
+            
+            if (time.isNotEmpty() && code.isNotEmpty()) {
+                list.add(Pair(time, code))
+            }
+        }
+        return list
+    }
+
+    fun createLocalRestorePoint(backupCode: String, timestamp: String) {
+        val db = dbHelper.writableDatabase
+        db.transaction {
+            // Shift 2 to 3
+            var code2 = ""
+            var time2 = ""
+            val c2 = rawQuery("SELECT value FROM settings WHERE \"key\" = 'backup_2_code'", null)
+            if (c2.moveToFirst()) code2 = c2.getString(0)
+            c2.close()
+            val t2 = rawQuery("SELECT value FROM settings WHERE \"key\" = 'backup_2_time'", null)
+            if (t2.moveToFirst()) time2 = t2.getString(0)
+            t2.close()
+            
+            if (code2.isNotEmpty() && time2.isNotEmpty()) {
+                execSQL("INSERT OR REPLACE INTO settings (\"key\", value) VALUES ('backup_3_code', ?)", arrayOf(code2))
+                execSQL("INSERT OR REPLACE INTO settings (\"key\", value) VALUES ('backup_3_time', ?)", arrayOf(time2))
+            }
+            
+            // Shift 1 to 2
+            var code1 = ""
+            var time1 = ""
+            val c1 = rawQuery("SELECT value FROM settings WHERE \"key\" = 'backup_1_code'", null)
+            if (c1.moveToFirst()) code1 = c1.getString(0)
+            c1.close()
+            val t1 = rawQuery("SELECT value FROM settings WHERE \"key\" = 'backup_1_time'", null)
+            if (t1.moveToFirst()) time1 = t1.getString(0)
+            t1.close()
+            
+            if (code1.isNotEmpty() && time1.isNotEmpty()) {
+                execSQL("INSERT OR REPLACE INTO settings (\"key\", value) VALUES ('backup_2_code', ?)", arrayOf(code1))
+                execSQL("INSERT OR REPLACE INTO settings (\"key\", value) VALUES ('backup_2_time', ?)", arrayOf(time1))
+            }
+            
+            // Save new as 1
+            execSQL("INSERT OR REPLACE INTO settings (\"key\", value) VALUES ('backup_1_code', ?)", arrayOf(backupCode))
+            execSQL("INSERT OR REPLACE INTO settings (\"key\", value) VALUES ('backup_1_time', ?)", arrayOf(timestamp))
+        }
     }
 }
 

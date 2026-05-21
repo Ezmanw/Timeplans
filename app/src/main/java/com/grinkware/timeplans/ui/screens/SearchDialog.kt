@@ -85,7 +85,7 @@ fun SearchDialog(
                                 Icon(Icons.Default.Close, contentDescription = "Close Search")
                             }
                         },
-                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.surface
                         )
                     )

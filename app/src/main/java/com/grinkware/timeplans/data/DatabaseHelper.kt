@@ -8,7 +8,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
     companion object {
         const val DATABASE_NAME = "timeplans.db"
-        const val DATABASE_VERSION = 2
+        const val DATABASE_VERSION = 5
     }
 
     override fun onConfigure(db: SQLiteDatabase) {
@@ -74,6 +74,7 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 due_date TEXT NOT NULL,
                 is_completed INTEGER DEFAULT 0,
                 task_type TEXT NOT NULL,
+                priority TEXT DEFAULT 'MEDIUM',
                 FOREIGN KEY(lesson_id) REFERENCES lessons(id) ON DELETE SET NULL
             )
         """)
@@ -104,34 +105,125 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
 
         db.execSQL("""
             CREATE TABLE settings (
-                key TEXT PRIMARY KEY,
+                "key" TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             )
         """)
 
         // Seed default settings
-        db.execSQL("INSERT INTO settings (key, value) VALUES ('darkMode', 'AUTO')")
-        db.execSQL("INSERT INTO settings (key, value) VALUES ('amoledMode', '0')")
-        db.execSQL("INSERT INTO settings (key, value) VALUES ('dynamicTheme', '1')")
-        db.execSQL("INSERT INTO settings (key, value) VALUES ('density', 'NORMAL')")
-        db.execSQL("INSERT INTO settings (key, value) VALUES ('fontStyle', 'SYSTEM')")
-        db.execSQL("INSERT INTO settings (key, value) VALUES ('showNotifications', '1')")
-        db.execSQL("INSERT INTO settings (key, value) VALUES ('endOfYearDate', '2026-07-20')")
-        db.execSQL("INSERT INTO settings (key, value) VALUES ('alarmLeadMinutes', '10')")
+        db.execSQL("INSERT INTO settings (\"key\", value) VALUES ('darkMode', 'AUTO')")
+        db.execSQL("INSERT INTO settings (\"key\", value) VALUES ('amoledMode', '0')")
+        db.execSQL("INSERT INTO settings (\"key\", value) VALUES ('dynamicTheme', '1')")
+        db.execSQL("INSERT INTO settings (\"key\", value) VALUES ('density', 'NORMAL')")
+        db.execSQL("INSERT INTO settings (\"key\", value) VALUES ('fontStyle', 'SYSTEM')")
+        db.execSQL("INSERT INTO settings (\"key\", value) VALUES ('showNotifications', '1')")
+        db.execSQL("INSERT INTO settings (\"key\", value) VALUES ('endOfYearDate', '2026-07-20')")
+        db.execSQL("INSERT INTO settings (\"key\", value) VALUES ('alarmLeadMinutes', '10')")
 
         // Seed default school year
         db.execSQL("INSERT INTO timetables (year_name, is_active, has_two_weeks) VALUES ('Year 10', 1, 0)")
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS grades (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subject TEXT NOT NULL,
+                title TEXT NOT NULL,
+                score REAL NOT NULL,
+                max_score REAL NOT NULL,
+                weight REAL DEFAULT 1.0,
+                date TEXT NOT NULL
+            )
+        """)
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS study_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subject TEXT NOT NULL,
+                duration_minutes INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                rating INTEGER DEFAULT 0,
+                reflection TEXT DEFAULT ''
+            )
+        """)
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS flashcards (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subject TEXT NOT NULL,
+                front TEXT NOT NULL,
+                back TEXT NOT NULL,
+                box INTEGER DEFAULT 1,
+                last_reviewed TEXT
+            )
+        """)
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS study_targets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subject TEXT UNIQUE NOT NULL,
+                target_minutes INTEGER NOT NULL
+            )
+        """)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS settings")
-        db.execSQL("DROP TABLE IF EXISTS lesson_overrides")
-        db.execSQL("DROP TABLE IF EXISTS exams")
-        db.execSQL("DROP TABLE IF EXISTS tasks")
-        db.execSQL("DROP TABLE IF EXISTS subject_attendance")
-        db.execSQL("DROP TABLE IF EXISTS attendance")
-        db.execSQL("DROP TABLE IF EXISTS lessons")
-        db.execSQL("DROP TABLE IF EXISTS timetables")
-        onCreate(db)
+        if (oldVersion < 2) {
+            try {
+                db.execSQL("ALTER TABLE lessons ADD COLUMN period_type TEXT DEFAULT 'CLASS'")
+            } catch (_: Exception) {
+                // Ignore
+            }
+        }
+        if (oldVersion < 3) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS grades (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    subject TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    score REAL NOT NULL,
+                    max_score REAL NOT NULL,
+                    weight REAL DEFAULT 1.0,
+                    date TEXT NOT NULL
+                )
+            """)
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS study_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    subject TEXT NOT NULL,
+                    duration_minutes INTEGER NOT NULL,
+                    date TEXT NOT NULL
+                )
+            """)
+        }
+        if (oldVersion < 4) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS flashcards (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    subject TEXT NOT NULL,
+                    front TEXT NOT NULL,
+                    back TEXT NOT NULL,
+                    box INTEGER DEFAULT 1,
+                    last_reviewed TEXT
+                )
+            """)
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS study_targets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    subject TEXT UNIQUE NOT NULL,
+                    target_minutes INTEGER NOT NULL
+                )
+            """)
+        }
+        if (oldVersion < 5) {
+            try {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN priority TEXT DEFAULT 'MEDIUM'")
+            } catch (_: Exception) {}
+            try {
+                db.execSQL("ALTER TABLE study_sessions ADD COLUMN rating INTEGER DEFAULT 0")
+            } catch (_: Exception) {}
+            try {
+                db.execSQL("ALTER TABLE study_sessions ADD COLUMN reflection TEXT DEFAULT ''")
+            } catch (_: Exception) {}
+        }
     }
 }

@@ -1,16 +1,11 @@
 package com.grinkware.timeplans.ui
 
 import android.app.Application
-import android.app.AlarmManager
-import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.grinkware.timeplans.data.*
-import com.grinkware.timeplans.receiver.LessonAlarmReceiver
 import com.grinkware.timeplans.receiver.TimePlansWidgetProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -31,6 +26,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val tasks = mutableStateOf<List<TaskItem>>(emptyList())
     val exams = mutableStateOf<List<ExamItem>>(emptyList())
     val overrides = mutableStateOf<List<LessonOverride>>(emptyList())
+    val gradesList = mutableStateOf<List<GradeEntry>>(emptyList())
+    val studySessionsList = mutableStateOf<List<StudySession>>(emptyList())
+    val flashcardsList = mutableStateOf<List<Flashcard>>(emptyList())
+    val studyTargetsList = mutableStateOf<List<StudyTarget>>(emptyList())
+    val localRestorePoints = mutableStateOf<List<Pair<String, String>>>(emptyList())
 
     // Dashboard State
     val dashboardState = mutableStateOf(DashboardState())
@@ -63,10 +63,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         refreshExams()
         refreshOverrides()
         refreshLessons()
+        refreshGrades()
+        refreshStudySessions()
+        refreshFlashcards()
+        refreshStudyTargets()
+        refreshLocalRestorePoints()
     }
 
     fun refreshSettings() {
         settings.value = repository.getSettings()
+    }
+
+    fun refreshLocalRestorePoints() {
+        localRestorePoints.value = repository.getLocalRestorePoints()
     }
 
     fun refreshTimetables() {
@@ -102,6 +111,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshOverrides() {
         val todayStr = getTodayDateString()
         overrides.value = repository.getOverridesForDate(todayStr)
+    }
+
+    fun refreshGrades() {
+        gradesList.value = repository.getGrades()
+    }
+
+    fun refreshStudySessions() {
+        studySessionsList.value = repository.getStudySessions()
+    }
+
+    fun refreshFlashcards() {
+        flashcardsList.value = repository.getFlashcards()
+    }
+
+    fun refreshStudyTargets() {
+        studyTargetsList.value = repository.getStudyTargets()
     }
 
     // --- ACTIONS ---
@@ -141,6 +166,79 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         repository.promoteToNextYear(sourceId, newYearName)
         refreshTimetables()
         refreshLessons()
+    }
+
+    fun exportActiveTimetable(): String? {
+        val active = activeTimetable.value ?: return null
+        val activeLessons = repository.getLessons(active.id)
+        return try {
+            val json = org.json.JSONObject()
+            json.put("yearName", active.yearName)
+            json.put("hasTwoWeeks", active.hasTwoWeeks)
+            
+            val lessonsArray = org.json.JSONArray()
+            for (lesson in activeLessons) {
+                val lessonJson = org.json.JSONObject()
+                lessonJson.put("name", lesson.name)
+                lessonJson.put("teacher", lesson.teacher)
+                lessonJson.put("room", lesson.room)
+                lessonJson.put("dayOfWeek", lesson.dayOfWeek)
+                lessonJson.put("startTimeMinutes", lesson.startTimeMinutes)
+                lessonJson.put("endTimeMinutes", lesson.endTimeMinutes)
+                lessonJson.put("colorHex", lesson.colorHex)
+                lessonJson.put("notes", lesson.notes)
+                lessonJson.put("homeworkLink", lesson.homeworkLink)
+                lessonJson.put("weekType", lesson.weekType)
+                lessonJson.put("periodType", lesson.periodType)
+                lessonsArray.put(lessonJson)
+            }
+            json.put("lessons", lessonsArray)
+            
+            val jsonStr = json.toString()
+            android.util.Base64.encodeToString(jsonStr.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    fun importTimetable(shareCode: String): Boolean {
+        return try {
+            val decodedBytes = android.util.Base64.decode(shareCode, android.util.Base64.DEFAULT)
+            val decodedStr = String(decodedBytes, Charsets.UTF_8)
+            val json = org.json.JSONObject(decodedStr)
+            
+            val yearName = json.getString("yearName")
+            val hasTwoWeeks = json.getBoolean("hasTwoWeeks")
+            
+            val newTimetableId = repository.insertTimetable(yearName, hasTwoWeeks)
+            
+            val lessonsArray = json.getJSONArray("lessons")
+            for (i in 0 until lessonsArray.length()) {
+                val lessonJson = lessonsArray.getJSONObject(i)
+                val lesson = Lesson(
+                    timetableId = newTimetableId,
+                    name = lessonJson.getString("name"),
+                    teacher = lessonJson.optString("teacher", ""),
+                    room = lessonJson.optString("room", ""),
+                    dayOfWeek = lessonJson.getInt("dayOfWeek"),
+                    startTimeMinutes = lessonJson.getInt("startTimeMinutes"),
+                    endTimeMinutes = lessonJson.getInt("endTimeMinutes"),
+                    colorHex = lessonJson.getInt("colorHex"),
+                    notes = lessonJson.optString("notes", ""),
+                    homeworkLink = lessonJson.optString("homeworkLink", ""),
+                    weekType = lessonJson.optString("weekType", "BOTH"),
+                    periodType = lessonJson.optString("periodType", "CLASS")
+                )
+                repository.insertLesson(lesson)
+            }
+            
+            setSchoolYearActive(newTimetableId)
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
     }
 
     // Lessons
@@ -194,10 +292,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         updateWidget()
     }
 
-    fun logSubjectAttendance(date: String, lessonId: Long, status: String) {
-        repository.saveSubjectAttendance(date, lessonId, status)
-        refreshAttendance()
-    }
 
     // Overrides
     fun cancelLessonForToday(lessonId: Long) {
@@ -305,11 +399,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         for (i in processedLessons.indices) {
             val (lesson, isCancelled) = processedLessons[i]
             
-            // If there's a gap before first lesson (e.g. school starts at 08:30, and it's morning)
-            if (i == 0 && lesson.startTimeMinutes > 510) { // e.g. gap before 08:30
-                // We can add a custom break or skip
-            }
-
             // Insert gap break if there's a gap between lessons
             if (i > 0) {
                 val prevLesson = processedLessons[i - 1].first
@@ -452,7 +541,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val days = diffMs / (1000 * 60 * 60 * 24)
                 "$days days left"
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "Not Set"
         }
     }
@@ -504,6 +593,90 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         // 4. Reload everything
         loadAllData()
+    }
+
+    // --- GRADES ACTIONS ---
+    fun saveGrade(grade: GradeEntry) {
+        repository.saveGrade(grade)
+        refreshGrades()
+    }
+
+    fun deleteGrade(gradeId: Long) {
+        repository.deleteGrade(gradeId)
+        refreshGrades()
+    }
+
+    // --- STUDY SESSION ACTIONS ---
+    fun saveStudySession(session: StudySession) {
+        repository.saveStudySession(session)
+        refreshStudySessions()
+    }
+
+    fun deleteStudySession(sessionId: Long) {
+        repository.deleteStudySession(sessionId)
+        refreshStudySessions()
+    }
+
+    // --- FLASHCARD ACTIONS ---
+    fun saveFlashcard(flashcard: Flashcard) {
+        repository.saveFlashcard(flashcard)
+        refreshFlashcards()
+    }
+
+    fun deleteFlashcard(flashcardId: Long) {
+        repository.deleteFlashcard(flashcardId)
+        refreshFlashcards()
+    }
+
+    // --- STUDY TARGET ACTIONS ---
+    fun saveStudyTarget(target: StudyTarget) {
+        repository.saveStudyTarget(target)
+        refreshStudyTargets()
+    }
+
+    fun deleteStudyTarget(subject: String) {
+        repository.deleteStudyTarget(subject)
+        refreshStudyTargets()
+    }
+
+    fun exportFullBackup(): String? {
+        return try {
+            repository.backupAllDataJSON()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    fun importFullBackup(backupCode: String): Boolean {
+        val success = repository.restoreAllDataJSON(backupCode)
+        if (success) {
+            loadAllData()
+        }
+        return success
+    }
+
+    fun createLocalRestorePoint() {
+        try {
+            val backupCode = repository.backupAllDataJSON()
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+            val timestamp = dateFormat.format(Date())
+            repository.createLocalRestorePoint(backupCode, timestamp)
+            refreshLocalRestorePoints()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun restoreLocalPoint(index: Int) {
+        val points = localRestorePoints.value
+        if (index >= 0 && index < points.size) {
+            val code = points[index].second
+            val success = repository.restoreAllDataJSON(code)
+            if (success) {
+                loadAllData()
+            }
+        }
     }
 
     companion object {

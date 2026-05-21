@@ -11,12 +11,12 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -30,8 +30,6 @@ import com.grinkware.timeplans.data.Lesson
 import com.grinkware.timeplans.data.TaskItem
 import com.grinkware.timeplans.ui.AppViewModel
 import com.grinkware.timeplans.ui.theme.LocalSpacing
-import androidx.compose.ui.viewinterop.AndroidView
-import android.widget.ImageView
 import java.util.Calendar
 import java.util.Locale
 
@@ -219,7 +217,7 @@ fun OnboardingScreen(viewModel: AppViewModel) {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
-                        imageVector = if (currentStep == stepsCount - 1) Icons.Default.Check else Icons.Default.ArrowForward,
+                        imageVector = if (currentStep == stepsCount - 1) Icons.Default.Check else Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp)
                     )
@@ -431,7 +429,7 @@ fun OnboardingNotifications(
             exit = shrinkVertically() + fadeOut()
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Divider()
+                HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Lead Time buffer: $alarmLeadMinutes minutes",
@@ -518,7 +516,7 @@ fun OnboardingAesthetics(
                 )
             }
 
-            Divider()
+            HorizontalDivider()
 
             // Density chips
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -534,7 +532,7 @@ fun OnboardingAesthetics(
                 }
             }
 
-            Divider()
+            HorizontalDivider()
 
             // Font chips (Using wrapped FlowRow to avoid squishing)
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -607,7 +605,7 @@ fun OnboardingLessons(
     onDeleteLesson: (Lesson) -> Unit
 ) {
     val spacing = LocalSpacing.current
-    var showAddDialog by remember { mutableStateOf(false) }
+    val showAddDialog = remember { mutableStateOf(false) }
     var selectedDayFilter by remember { mutableStateOf(1) } // 1 = Mon, ..., 7 = Sun
 
     Column(
@@ -633,7 +631,7 @@ fun OnboardingLessons(
 
         // Days Selector Tab Row
         val daysList = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-        ScrollableTabRow(
+        SecondaryScrollableTabRow(
             selectedTabIndex = selectedDayFilter - 1,
             containerColor = Color.Transparent,
             edgePadding = 0.dp,
@@ -782,7 +780,7 @@ fun OnboardingLessons(
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = { showAddDialog = true },
+            onClick = { showAddDialog.value = true },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
@@ -796,16 +794,16 @@ fun OnboardingLessons(
         }
     }
 
-    if (showAddDialog) {
+    if (showAddDialog.value) {
         LessonAddEditDialog(
             timetableId = 0L,
             lesson = null,
             hasDoubleWeek = hasTwoWeeks,
             selectedDay = selectedDayFilter,
-            onDismiss = { showAddDialog = false },
+            onDismiss = { showAddDialog.value = false },
             onSave = {
                 onAddLesson(it)
-                showAddDialog = false
+                showAddDialog.value = false
             }
         )
     }
@@ -819,7 +817,7 @@ fun OnboardingHomework(
     onDeleteTask: (TaskItem) -> Unit
 ) {
     val spacing = LocalSpacing.current
-    var showAddDialog by remember { mutableStateOf(false) }
+    val showAddDialog = remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -941,7 +939,7 @@ fun OnboardingHomework(
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = { showAddDialog = true },
+            onClick = { showAddDialog.value = true },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
@@ -955,10 +953,10 @@ fun OnboardingHomework(
         }
     }
 
-    if (showAddDialog) {
+    if (showAddDialog.value) {
         OnboardingAddHomeworkDialog(
             lessons = lessons,
-            onDismiss = { showAddDialog = false },
+            onDismiss = { showAddDialog.value = false },
             onSave = { title, desc, date, tempLessonIndex ->
                 onAddTask(
                     TaskItem(
@@ -971,7 +969,7 @@ fun OnboardingHomework(
                         taskType = "HOMEWORK"
                     )
                 )
-                showAddDialog = false
+                showAddDialog.value = false
             }
         )
     }
@@ -994,7 +992,7 @@ fun OnboardingAddHomeworkDialog(
     var date by remember { mutableStateOf(defaultDateStr) }
     var tempLessonIndex by remember { mutableStateOf<Long?>(null) }
     var expanded by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
+    val error = remember { mutableStateOf("") }
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val calendar = Calendar.getInstance()
@@ -1002,7 +1000,7 @@ fun OnboardingAddHomeworkDialog(
         android.app.DatePickerDialog(
             context,
             { _, year, month, dayOfMonth ->
-                date = String.format("%04d-%02d-%02d", year, month + 1, dayOfMonth)
+                date = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, dayOfMonth)
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
@@ -1015,8 +1013,8 @@ fun OnboardingAddHomeworkDialog(
         title = { Text("Add Homework") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
-                if (error.isNotEmpty()) {
-                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                if (error.value.isNotEmpty()) {
+                    Text(error.value, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
 
                 OutlinedTextField(
@@ -1101,7 +1099,7 @@ fun OnboardingAddHomeworkDialog(
         confirmButton = {
             TextButton(onClick = {
                 if (title.trim().isEmpty()) {
-                    error = "Title is required"
+                    error.value = "Title is required"
                     return@TextButton
                 }
                 onSave(title, desc, date, tempLessonIndex)
