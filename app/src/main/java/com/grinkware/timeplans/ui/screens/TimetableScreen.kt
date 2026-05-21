@@ -227,12 +227,21 @@ fun TimetableScreen(viewModel: AppViewModel) {
             title = { Text(currentLesson.name) },
             text = { Text("Choose an action for this class.") },
             confirmButton = {
-                TextButton(onClick = {
-                    showActionDialog.value = false
-                    selectedLessonForEdit.value = currentLesson
-                    showAddEditDialog.value = true
-                }) {
-                    Text("Edit Properties")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        showActionDialog.value = false
+                        selectedLessonForEdit.value = currentLesson.copy(id = 0L)
+                        showAddEditDialog.value = true
+                    }) {
+                        Text("Duplicate")
+                    }
+                    TextButton(onClick = {
+                        showActionDialog.value = false
+                        selectedLessonForEdit.value = currentLesson
+                        showAddEditDialog.value = true
+                    }) {
+                        Text("Edit")
+                    }
                 }
             },
             dismissButton = {
