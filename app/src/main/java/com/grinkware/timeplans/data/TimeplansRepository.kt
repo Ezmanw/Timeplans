@@ -320,6 +320,11 @@ class TimeplansRepository(context: Context) {
         db.delete("tasks", "id = ?", arrayOf(taskId.toString()))
     }
 
+    fun deleteCompletedTasks(taskType: String) {
+        val db = dbHelper.writableDatabase
+        db.delete("tasks", "is_completed = 1 AND task_type = ?", arrayOf(taskType))
+    }
+
     // --- EXAMS ---
 
     fun getExams(): List<ExamItem> {
