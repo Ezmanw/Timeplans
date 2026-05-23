@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
@@ -478,6 +479,21 @@ fun SettingsScreen(viewModel: AppViewModel) {
 
                     // End of year date
                     var endYearInput by remember { mutableStateOf(settingsState.endOfYearDate) }
+
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val calendar = java.util.Calendar.getInstance()
+                    val datePickerDialog = remember {
+                        android.app.DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                endYearInput = String.format(java.util.Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, dayOfMonth)
+                            },
+                            calendar.get(java.util.Calendar.YEAR),
+                            calendar.get(java.util.Calendar.MONTH),
+                            calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                        )
+                    }
+
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("End of Current School Year Date", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                         Text("Calculates the countdown metric displayed on Dashboard.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -492,6 +508,12 @@ fun SettingsScreen(viewModel: AppViewModel) {
                                 onValueChange = { endYearInput = it },
                                 placeholder = { Text("YYYY-MM-DD") },
                                 singleLine = true,
+                                readOnly = true,
+                                trailingIcon = {
+                                    IconButton(onClick = { datePickerDialog.show() }) {
+                                        Icon(Icons.Default.DateRange, contentDescription = "Select Date")
+                                    }
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                             Button(

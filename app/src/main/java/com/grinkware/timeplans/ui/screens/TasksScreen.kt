@@ -741,10 +741,28 @@ fun AddExamDialog(
 ) {
     val spacing = LocalSpacing.current
     var subject by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf("2026-06-15") }
+    val defaultDateStr = remember {
+        val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+    }
+    var date by remember { mutableStateOf(defaultDateStr) }
     var time by remember { mutableStateOf("09:00") }
     var room by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val calendar = Calendar.getInstance()
+    val datePickerDialog = remember {
+        android.app.DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                date = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, dayOfMonth)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+    }
 
     val error = remember { mutableStateOf("") }
 
@@ -770,6 +788,12 @@ fun AddExamDialog(
                     onValueChange = { date = it },
                     label = { Text("Exam Date (YYYY-MM-DD)*") },
                     singleLine = true,
+                    readOnly = true,
+                    trailingIcon = {
+                        IconButton(onClick = { datePickerDialog.show() }) {
+                            Icon(Icons.Default.DateRange, contentDescription = "Select Date")
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -825,8 +849,26 @@ fun AddRevisionDialog(
     val spacing = LocalSpacing.current
     var topic by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf("2026-05-20") }
+    val defaultDateStr = remember {
+        val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+    }
+    var date by remember { mutableStateOf(defaultDateStr) }
     var priority by remember { mutableStateOf("MEDIUM") }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val calendar = Calendar.getInstance()
+    val datePickerDialog = remember {
+        android.app.DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                date = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, dayOfMonth)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+    }
 
     val error = remember { mutableStateOf("") }
 
@@ -859,6 +901,12 @@ fun AddRevisionDialog(
                     onValueChange = { date = it },
                     label = { Text("Revision Date (YYYY-MM-DD)") },
                     singleLine = true,
+                    readOnly = true,
+                    trailingIcon = {
+                        IconButton(onClick = { datePickerDialog.show() }) {
+                            Icon(Icons.Default.DateRange, contentDescription = "Select Date")
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
