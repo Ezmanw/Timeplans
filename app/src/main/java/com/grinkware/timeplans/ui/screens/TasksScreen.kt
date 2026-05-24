@@ -1,9 +1,11 @@
 package com.grinkware.timeplans.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -94,20 +96,41 @@ fun TasksScreen(viewModel: AppViewModel) {
             }
 
             if (selectedTabIndex == 0 || selectedTabIndex == 2) {
+                val currentTaskType = if (selectedTabIndex == 0) "HOMEWORK" else "REVISION"
+                val hasCompleted = filteredSortedTasks.any { it.taskType == currentTaskType && it.isCompleted }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = spacing.medium),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Sort:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                    listOf("DUE_ASC" to "Due date (Soonest)", "DUE_DESC" to "Due date (Latest)", "PRIORITY" to "Priority").forEach { (option, label) ->
-                        FilterChip(
-                            selected = sortBy == option,
-                            onClick = { sortBy = option },
-                            label = { Text(label, fontSize = 10.sp) }
-                        )
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Sort:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                        listOf("DUE_ASC" to "Due date (Soonest)", "DUE_DESC" to "Due date (Latest)", "PRIORITY" to "Priority").forEach { (option, label) ->
+                            FilterChip(
+                                selected = sortBy == option,
+                                onClick = { sortBy = option },
+                                label = { Text(label, fontSize = 10.sp) }
+                            )
+                        }
+                    }
+
+                    if (hasCompleted) {
+                        TextButton(
+                            onClick = { viewModel.clearCompletedTasks(currentTaskType) },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            modifier = Modifier.padding(start = spacing.small)
+                        ) {
+                            Text("Clear Done", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             }
