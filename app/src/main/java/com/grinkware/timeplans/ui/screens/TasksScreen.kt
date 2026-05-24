@@ -3,6 +3,7 @@ package com.grinkware.timeplans.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -47,13 +48,16 @@ fun TasksScreen(viewModel: AppViewModel) {
 
     // Sorting state
     var sortBy by remember { mutableStateOf("DUE_ASC") }
+    var hideCompleted by remember { mutableStateOf(false) }
     val priorityWeight = mapOf("HIGH" to 0, "MEDIUM" to 1, "LOW" to 2)
 
-    val filteredSortedTasks = remember(tasks, sortBy) {
+    val filteredSortedTasks = remember(tasks, sortBy, hideCompleted) {
+        val baseTasks = if (hideCompleted) tasks.filter { !it.isCompleted } else tasks
+
         when (sortBy) {
-            "DUE_DESC" -> tasks.sortedByDescending { it.dueDate }
-            "PRIORITY" -> tasks.sortedWith(compareBy({ priorityWeight[it.priority] ?: 1 }, { it.dueDate }))
-            else -> tasks.sortedBy { it.dueDate }
+            "DUE_DESC" -> baseTasks.sortedByDescending { it.dueDate }
+            "PRIORITY" -> baseTasks.sortedWith(compareBy({ priorityWeight[it.priority] ?: 1 }, { it.dueDate }))
+            else -> baseTasks.sortedBy { it.dueDate }
         }
     }
 
@@ -94,15 +98,24 @@ fun TasksScreen(viewModel: AppViewModel) {
             }
 
             if (selectedTabIndex == 0 || selectedTabIndex == 2) {
-                Row(
+                LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = spacing.medium),
                     horizontalArrangement = Arrangement.spacedBy(spacing.small),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Sort:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                    listOf("DUE_ASC" to "Due date (Soonest)", "DUE_DESC" to "Due date (Latest)", "PRIORITY" to "Priority").forEach { (option, label) ->
+                    item {
+                        FilterChip(
+                            selected = hideCompleted,
+                            onClick = { hideCompleted = !hideCompleted },
+                            label = { Text("Hide Completed", fontSize = 10.sp) }
+                        )
+                    }
+                    item {
+                        Text("Sort:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+                    }
+                    items(listOf("DUE_ASC" to "Due date (Soonest)", "DUE_DESC" to "Due date (Latest)", "PRIORITY" to "Priority")) { (option, label) ->
                         FilterChip(
                             selected = sortBy == option,
                             onClick = { sortBy = option },
