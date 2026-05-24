@@ -27,6 +27,8 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import android.widget.Toast
+import java.util.Calendar
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -481,16 +483,16 @@ fun SettingsScreen(viewModel: AppViewModel) {
                     var endYearInput by remember { mutableStateOf(settingsState.endOfYearDate) }
 
                     val context = androidx.compose.ui.platform.LocalContext.current
-                    val calendar = java.util.Calendar.getInstance()
+                    val calendar = Calendar.getInstance()
                     val datePickerDialog = remember {
                         android.app.DatePickerDialog(
                             context,
                             { _, year, month, dayOfMonth ->
-                                endYearInput = String.format(java.util.Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, dayOfMonth)
+                                endYearInput = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, dayOfMonth)
                             },
-                            calendar.get(java.util.Calendar.YEAR),
-                            calendar.get(java.util.Calendar.MONTH),
-                            calendar.get(java.util.Calendar.DAY_OF_MONTH)
+                            calendar.get(Calendar.YEAR),
+                            calendar.get(Calendar.MONTH),
+                            calendar.get(Calendar.DAY_OF_MONTH)
                         )
                     }
 
