@@ -4,3 +4,6 @@
 ## 2024-05-22 - Clear Completed Tasks Bulk Action
 **Learning:** Users who frequently complete tasks often clutter their lists. A "Clear Done" bulk action provides a quick way to clean up the interface, saving them from having to delete items one by one.
 **Action:** Implemented a bulk delete action for tasks that are marked as completed. The button only appears when completed tasks are present, keeping the UI clean.
+## 2024-05-25 - Destructive Action Undo/Confirmation Pattern
+**Learning:** Adding bulk destructive actions (like clearing old records) requires user confirmation to prevent accidental data loss. Immediate delete is dangerous for historical records compared to easily reproducible state.
+**Action:** Implemented a standard AlertDialog confirmation step when user initiates "Clear Past" exams to verify intention before wiping database entries.
