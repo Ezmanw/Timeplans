@@ -273,6 +273,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         refreshTasks()
     }
 
+    fun clearCompletedTasks(taskType: String) {
+        repository.deleteCompletedTasks(taskType)
+        refreshTasks()
+    }
+
     // Exams
     fun addExam(exam: ExamItem) {
         repository.insertExam(exam)
