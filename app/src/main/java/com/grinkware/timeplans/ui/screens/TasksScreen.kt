@@ -152,7 +152,8 @@ fun TasksScreen(viewModel: AppViewModel) {
                     1 -> ExamList(
                         exams = exams,
                         spacing = spacing,
-                        onDelete = { viewModel.deleteExam(it) }
+                        onDelete = { viewModel.deleteExam(it) },
+                        onClearPast = { viewModel.clearPastExams() }
                     )
                     2 -> RevisionList(
                         tasks = filteredSortedTasks.filter { it.taskType == "REVISION" },
@@ -352,18 +353,59 @@ fun HomeworkList(
 fun ExamList(
     exams: List<ExamItem>,
     spacing: com.grinkware.timeplans.ui.theme.Spacing,
-    onDelete: (Long) -> Unit
+    onDelete: (Long) -> Unit,
+    onClearPast: () -> Unit
 ) {
     if (exams.isEmpty()) {
         EmptyState(text = "No upcoming exams scheduled", spacing = spacing)
     } else {
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(spacing.medium),
-            contentPadding = PaddingValues(bottom = 80.dp, top = spacing.small),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(exams) { exam ->
-                ExamCard(exam = exam, spacing = spacing, onDelete = { onDelete(exam.id) })
+        Column(modifier = Modifier.fillMaxSize()) {
+            val todayDate = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) }
+            val hasPastExams = exams.any { it.date < todayDate }
+            var showClearConfirm by remember { mutableStateOf(false) }
+
+            if (showClearConfirm) {
+                AlertDialog(
+                    onDismissRequest = { showClearConfirm = false },
+                    title = { Text("Clear Past Exams") },
+                    text = { Text("Are you sure you want to permanently delete all past exams?") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            onClearPast()
+                            showClearConfirm = false
+                        }) {
+                            Text("Clear", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showClearConfirm = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
+            if (hasPastExams) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = spacing.medium),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = { showClearConfirm = true }) {
+                        Text("Clear Past", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(spacing.medium),
+                contentPadding = PaddingValues(bottom = 80.dp, top = spacing.small),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(exams) { exam ->
+                    ExamCard(exam = exam, spacing = spacing, onDelete = { onDelete(exam.id) })
+                }
             }
         }
     }

@@ -365,6 +365,11 @@ class TimeplansRepository(context: Context) {
         db.delete("exams", "id = ?", arrayOf(examId.toString()))
     }
 
+    fun deletePastExams(currentDate: String) {
+        val db = dbHelper.writableDatabase
+        db.delete("exams", "date < ?", arrayOf(currentDate))
+    }
+
     // --- LESSON OVERRIDES ---
 
     fun getOverridesForDate(date: String): List<LessonOverride> {

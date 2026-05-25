@@ -289,6 +289,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         refreshExams()
     }
 
+    fun clearPastExams() {
+        val todayStr = getTodayDateString()
+        repository.deletePastExams(todayStr)
+        refreshExams()
+    }
+
     // Attendance
     fun updateDailyAttendance(status: String, notes: String = "") {
         val todayStr = getTodayDateString()
