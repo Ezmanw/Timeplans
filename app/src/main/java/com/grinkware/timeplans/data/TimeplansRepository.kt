@@ -360,6 +360,18 @@ class TimeplansRepository(context: Context) {
     }
 
 
+    fun updateExam(exam: ExamItem) {
+        val db = dbHelper.writableDatabase
+        val values = ContentValues().apply {
+            put("subject", exam.subject)
+            put("date", exam.date)
+            put("time", exam.time)
+            put("room", exam.room)
+            put("notes", exam.notes)
+        }
+        db.update("exams", values, "id = ?", arrayOf(exam.id.toString()))
+    }
+
     fun deleteExam(examId: Long) {
         val db = dbHelper.writableDatabase
         db.delete("exams", "id = ?", arrayOf(examId.toString()))
