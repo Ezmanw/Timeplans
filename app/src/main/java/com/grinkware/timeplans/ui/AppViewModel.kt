@@ -263,6 +263,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         refreshTasks()
     }
 
+    fun editTask(task: TaskItem) {
+        repository.updateTask(task)
+        refreshTasks()
+    }
+
     fun toggleTask(task: TaskItem) {
         repository.updateTask(task.copy(isCompleted = !task.isCompleted))
         refreshTasks()
@@ -281,6 +286,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // Exams
     fun addExam(exam: ExamItem) {
         repository.insertExam(exam)
+        refreshExams()
+    }
+
+    fun editExam(exam: ExamItem) {
+        repository.updateExam(exam)
         refreshExams()
     }
 

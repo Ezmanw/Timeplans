@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,6 +48,10 @@ fun TasksScreen(viewModel: AppViewModel) {
     val showAddExamDialog = remember { mutableStateOf(false) }
     val showAddRevisionDialog = remember { mutableStateOf(false) }
 
+    // Edit state
+    val taskToEdit = remember { mutableStateOf<TaskItem?>(null) }
+    val examToEdit = remember { mutableStateOf<ExamItem?>(null) }
+
     // Sorting state
     var sortBy by remember { mutableStateOf("DUE_ASC") }
     val priorityWeight = mapOf("HIGH" to 0, "MEDIUM" to 1, "LOW" to 2)
@@ -64,9 +69,18 @@ fun TasksScreen(viewModel: AppViewModel) {
             FloatingActionButton(
                 onClick = {
                     when (selectedTabIndex) {
-                        0 -> showAddHomeworkDialog.value = true
-                        1 -> showAddExamDialog.value = true
-                        2 -> showAddRevisionDialog.value = true
+                        0 -> {
+                            taskToEdit.value = null
+                            showAddHomeworkDialog.value = true
+                        }
+                        1 -> {
+                            examToEdit.value = null
+                            showAddExamDialog.value = true
+                        }
+                        2 -> {
+                            taskToEdit.value = null
+                            showAddRevisionDialog.value = true
+                        }
                     }
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -147,18 +161,30 @@ fun TasksScreen(viewModel: AppViewModel) {
                         lessons = lessons,
                         spacing = spacing,
                         onToggle = { viewModel.toggleTask(it) },
-                        onDelete = { viewModel.deleteTask(it.id) }
+                        onDelete = { viewModel.deleteTask(it.id) },
+                        onEdit = {
+                            taskToEdit.value = it
+                            showAddHomeworkDialog.value = true
+                        }
                     )
                     1 -> ExamList(
                         exams = exams,
                         spacing = spacing,
-                        onDelete = { viewModel.deleteExam(it) }
+                        onDelete = { viewModel.deleteExam(it) },
+                        onEdit = {
+                            examToEdit.value = it
+                            showAddExamDialog.value = true
+                        }
                     )
                     2 -> RevisionList(
                         tasks = filteredSortedTasks.filter { it.taskType == "REVISION" },
                         spacing = spacing,
                         onToggle = { viewModel.toggleTask(it) },
-                        onDelete = { viewModel.deleteTask(it.id) }
+                        onDelete = { viewModel.deleteTask(it.id) },
+                        onEdit = {
+                            taskToEdit.value = it
+                            showAddRevisionDialog.value = true
+                        }
                     )
                 }
             }
@@ -168,19 +194,25 @@ fun TasksScreen(viewModel: AppViewModel) {
     // Homework Dialog
     if (showAddHomeworkDialog.value) {
         AddHomeworkDialog(
+            taskToEdit = taskToEdit.value,
             lessons = lessons,
             onDismiss = { showAddHomeworkDialog.value = false },
             onSave = { title, desc, date, lessonId, priority ->
-                viewModel.addTask(
-                    TaskItem(
-                        title = title,
-                        description = desc,
-                        dueDate = date,
-                        lessonId = lessonId,
-                        taskType = "HOMEWORK",
-                        priority = priority
-                    )
+                val task = TaskItem(
+                    id = taskToEdit.value?.id ?: 0,
+                    title = title,
+                    description = desc,
+                    dueDate = date,
+                    lessonId = lessonId,
+                    taskType = "HOMEWORK",
+                    priority = priority,
+                    isCompleted = taskToEdit.value?.isCompleted ?: false
                 )
+                if (taskToEdit.value != null) {
+                    viewModel.editTask(task)
+                } else {
+                    viewModel.addTask(task)
+                }
                 showAddHomeworkDialog.value = false
             }
         )
@@ -189,17 +221,22 @@ fun TasksScreen(viewModel: AppViewModel) {
     // Exam Dialog
     if (showAddExamDialog.value) {
         AddExamDialog(
+            examToEdit = examToEdit.value,
             onDismiss = { showAddExamDialog.value = false },
             onSave = { subject, date, time, room, notes ->
-                viewModel.addExam(
-                    ExamItem(
-                        subject = subject,
-                        date = date,
-                        time = time,
-                        room = room,
-                        notes = notes
-                    )
+                val exam = ExamItem(
+                    id = examToEdit.value?.id ?: 0,
+                    subject = subject,
+                    date = date,
+                    time = time,
+                    room = room,
+                    notes = notes
                 )
+                if (examToEdit.value != null) {
+                    viewModel.editExam(exam)
+                } else {
+                    viewModel.addExam(exam)
+                }
                 showAddExamDialog.value = false
             }
         )
@@ -208,17 +245,23 @@ fun TasksScreen(viewModel: AppViewModel) {
     // Revision Dialog
     if (showAddRevisionDialog.value) {
         AddRevisionDialog(
+            taskToEdit = taskToEdit.value,
             onDismiss = { showAddRevisionDialog.value = false },
             onSave = { topic, desc, date, priority ->
-                viewModel.addTask(
-                    TaskItem(
-                        title = topic,
-                        description = desc,
-                        dueDate = date,
-                        taskType = "REVISION",
-                        priority = priority
-                    )
+                val task = TaskItem(
+                    id = taskToEdit.value?.id ?: 0,
+                    title = topic,
+                    description = desc,
+                    dueDate = date,
+                    taskType = "REVISION",
+                    priority = priority,
+                    isCompleted = taskToEdit.value?.isCompleted ?: false
                 )
+                if (taskToEdit.value != null) {
+                    viewModel.editTask(task)
+                } else {
+                    viewModel.addTask(task)
+                }
                 showAddRevisionDialog.value = false
             }
         )
@@ -233,7 +276,8 @@ fun HomeworkList(
     lessons: List<Lesson>,
     spacing: com.grinkware.timeplans.ui.theme.Spacing,
     onToggle: (TaskItem) -> Unit,
-    onDelete: (TaskItem) -> Unit
+    onDelete: (TaskItem) -> Unit,
+    onEdit: (TaskItem) -> Unit
 ) {
     if (tasks.isEmpty()) {
         EmptyState(text = "No pending homework tasks", spacing = spacing)
@@ -334,12 +378,21 @@ fun HomeworkList(
                             }
                         }
 
-                        IconButton(onClick = { onDelete(task) }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                tint = MaterialTheme.colorScheme.error
-                            )
+                        Row {
+                            IconButton(onClick = { onEdit(task) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Create,
+                                    contentDescription = "Edit",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(onClick = { onDelete(task) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                     }
                 }
@@ -352,7 +405,8 @@ fun HomeworkList(
 fun ExamList(
     exams: List<ExamItem>,
     spacing: com.grinkware.timeplans.ui.theme.Spacing,
-    onDelete: (Long) -> Unit
+    onDelete: (Long) -> Unit,
+    onEdit: (ExamItem) -> Unit
 ) {
     if (exams.isEmpty()) {
         EmptyState(text = "No upcoming exams scheduled", spacing = spacing)
@@ -363,7 +417,7 @@ fun ExamList(
             modifier = Modifier.fillMaxSize()
         ) {
             items(exams) { exam ->
-                ExamCard(exam = exam, spacing = spacing, onDelete = { onDelete(exam.id) })
+                ExamCard(exam = exam, spacing = spacing, onDelete = { onDelete(exam.id) }, onEdit = { onEdit(exam) })
             }
         }
     }
@@ -373,7 +427,8 @@ fun ExamList(
 fun ExamCard(
     exam: ExamItem,
     spacing: com.grinkware.timeplans.ui.theme.Spacing,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEdit: () -> Unit
 ) {
     var countdownText by remember { mutableStateOf("") }
 
@@ -424,12 +479,21 @@ fun ExamCard(
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.primary
                 )
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            imageVector = Icons.Default.Create,
+                            contentDescription = "Edit",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
 
@@ -485,7 +549,8 @@ fun RevisionList(
     tasks: List<TaskItem>,
     spacing: com.grinkware.timeplans.ui.theme.Spacing,
     onToggle: (TaskItem) -> Unit,
-    onDelete: (TaskItem) -> Unit
+    onDelete: (TaskItem) -> Unit,
+    onEdit: (TaskItem) -> Unit
 ) {
     if (tasks.isEmpty()) {
         EmptyState(text = "No revision schedules created", spacing = spacing)
@@ -569,12 +634,21 @@ fun RevisionList(
                             }
                         }
 
-                        IconButton(onClick = { onDelete(task) }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                tint = MaterialTheme.colorScheme.error
-                            )
+                        Row {
+                            IconButton(onClick = { onEdit(task) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Create,
+                                    contentDescription = "Edit",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(onClick = { onDelete(task) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                     }
                 }
@@ -607,20 +681,21 @@ fun EmptyState(text: String, spacing: com.grinkware.timeplans.ui.theme.Spacing) 
 
 @Composable
 fun AddHomeworkDialog(
+    taskToEdit: TaskItem?,
     lessons: List<Lesson>,
     onDismiss: () -> Unit,
     onSave: (String, String, String, Long?, String) -> Unit
 ) {
     val spacing = LocalSpacing.current
-    var title by remember { mutableStateOf("") }
-    var desc by remember { mutableStateOf("") }
+    var title by remember { mutableStateOf(taskToEdit?.title ?: "") }
+    var desc by remember { mutableStateOf(taskToEdit?.description ?: "") }
     val defaultDateStr = remember {
         val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
     }
-    var date by remember { mutableStateOf(defaultDateStr) }
-    var linkedLessonId by remember { mutableStateOf<Long?>(null) }
-    var priority by remember { mutableStateOf("MEDIUM") }
+    var date by remember { mutableStateOf(taskToEdit?.dueDate ?: defaultDateStr) }
+    var linkedLessonId by remember { mutableStateOf<Long?>(taskToEdit?.lessonId) }
+    var priority by remember { mutableStateOf(taskToEdit?.priority ?: "MEDIUM") }
     var expanded by remember { mutableStateOf(false) }
 
     val error = remember { mutableStateOf("") }
@@ -759,15 +834,16 @@ fun AddHomeworkDialog(
 
 @Composable
 fun AddExamDialog(
+    examToEdit: ExamItem?,
     onDismiss: () -> Unit,
     onSave: (String, String, String, String, String) -> Unit
 ) {
     val spacing = LocalSpacing.current
-    var subject by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf("2026-06-15") }
-    var time by remember { mutableStateOf("09:00") }
-    var room by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    var subject by remember { mutableStateOf(examToEdit?.subject ?: "") }
+    var date by remember { mutableStateOf(examToEdit?.date ?: "2026-06-15") }
+    var time by remember { mutableStateOf(examToEdit?.time ?: "09:00") }
+    var room by remember { mutableStateOf(examToEdit?.room ?: "") }
+    var notes by remember { mutableStateOf(examToEdit?.notes ?: "") }
 
     val error = remember { mutableStateOf("") }
 
@@ -842,14 +918,15 @@ fun AddExamDialog(
 
 @Composable
 fun AddRevisionDialog(
+    taskToEdit: TaskItem?,
     onDismiss: () -> Unit,
     onSave: (String, String, String, String) -> Unit
 ) {
     val spacing = LocalSpacing.current
-    var topic by remember { mutableStateOf("") }
-    var desc by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf("2026-05-20") }
-    var priority by remember { mutableStateOf("MEDIUM") }
+    var topic by remember { mutableStateOf(taskToEdit?.title ?: "") }
+    var desc by remember { mutableStateOf(taskToEdit?.description ?: "") }
+    var date by remember { mutableStateOf(taskToEdit?.dueDate ?: "2026-05-20") }
+    var priority by remember { mutableStateOf(taskToEdit?.priority ?: "MEDIUM") }
 
     val error = remember { mutableStateOf("") }
 
