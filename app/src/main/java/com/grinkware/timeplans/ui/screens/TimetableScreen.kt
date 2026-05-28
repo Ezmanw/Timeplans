@@ -25,6 +25,10 @@ import com.grinkware.timeplans.data.Lesson
 import com.grinkware.timeplans.ui.AppViewModel
 import com.grinkware.timeplans.ui.theme.LocalSpacing
 import com.grinkware.timeplans.ui.theme.SubjectColors
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import android.widget.Toast
 
 @Composable
 fun TimetableScreen(viewModel: AppViewModel) {
@@ -441,9 +445,17 @@ fun LessonTimetableCard(
                 }
 
                 if (lesson.periodType == "CLASS" && lesson.homeworkLink.isNotEmpty()) {
+                    val clipboardManager = LocalClipboardManager.current
+                    val context = LocalContext.current
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier
+                            .clickable {
+                                clipboardManager.setText(AnnotatedString(lesson.homeworkLink))
+                                Toast.makeText(context, "Homework link copied", Toast.LENGTH_SHORT).show()
+                            }
+                            .padding(vertical = 4.dp, horizontal = 4.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Create,

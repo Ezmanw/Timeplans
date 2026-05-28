@@ -4,3 +4,4 @@
 ## 2024-05-22 - Clear Completed Tasks Bulk Action
 **Learning:** Users who frequently complete tasks often clutter their lists. A "Clear Done" bulk action provides a quick way to clean up the interface, saving them from having to delete items one by one.
 **Action:** Implemented a bulk delete action for tasks that are marked as completed. The button only appears when completed tasks are present, keeping the UI clean.
+## 2024-05-27 - [Settings Persistence Pattern] **Learning:** [To add a new user setting without altering the SQLite schema, utilize the existing key-value 'settings' table and AppSettings data class.] **Action:** [When introducing new user preferences, always default to extending AppSettings and using viewModel.updateSetting() to persist them.]
