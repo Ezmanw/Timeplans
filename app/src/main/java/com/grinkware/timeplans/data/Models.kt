@@ -82,7 +82,8 @@ data class AppSettings(
     val alarmLeadMinutes: Int = 10,
     val onboardingCompleted: Boolean = false,
     val todayWidgetOrder: String = "TIMELINE,COUNTDOWN,HERO,ATTENDANCE,INSIGHTS,DEADLINES",
-    val todayWidgetVisibility: String = "TIMELINE,COUNTDOWN,HERO,ATTENDANCE,INSIGHTS,DEADLINES"
+    val todayWidgetVisibility: String = "TIMELINE,COUNTDOWN,HERO,ATTENDANCE,INSIGHTS,DEADLINES",
+    val tasksSortBy: String = "DUE_ASC"
 )
 
 data class GradeEntry(

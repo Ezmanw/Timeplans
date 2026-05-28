@@ -30,6 +30,11 @@ import com.grinkware.timeplans.ui.theme.LocalSpacing
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import android.widget.Toast
+import androidx.compose.material.icons.filled.Share
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +53,7 @@ fun TasksScreen(viewModel: AppViewModel) {
     val showAddRevisionDialog = remember { mutableStateOf(false) }
 
     // Sorting state
-    var sortBy by remember { mutableStateOf("DUE_ASC") }
+    val sortBy = viewModel.settings.value.tasksSortBy
     val priorityWeight = mapOf("HIGH" to 0, "MEDIUM" to 1, "LOW" to 2)
 
     val filteredSortedTasks = remember(tasks, sortBy) {
@@ -117,7 +122,7 @@ fun TasksScreen(viewModel: AppViewModel) {
                         listOf("DUE_ASC" to "Due date (Soonest)", "DUE_DESC" to "Due date (Latest)", "PRIORITY" to "Priority").forEach { (option, label) ->
                             FilterChip(
                                 selected = sortBy == option,
-                                onClick = { sortBy = option },
+                                onClick = { viewModel.updateSetting("tasksSortBy", option) },
                                 label = { Text(label, fontSize = 10.sp) }
                             )
                         }
@@ -424,12 +429,33 @@ fun ExamCard(
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.primary
                 )
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+                Row {
+                    val clipboardManager = LocalClipboardManager.current
+                    val context = LocalContext.current
+                    IconButton(onClick = {
+                        val shareText = buildString {
+                            append("Exam: ${exam.subject}\n")
+                            append("Date: ${exam.date}\n")
+                            append("Time: ${exam.time}\n")
+                            if (exam.room.isNotEmpty()) append("Room: ${exam.room}\n")
+                            if (exam.notes.isNotEmpty()) append("Notes: ${exam.notes}")
+                        }.trimEnd()
+                        clipboardManager.setText(AnnotatedString(shareText))
+                        Toast.makeText(context, "Exam details copied", Toast.LENGTH_SHORT).show()
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
 
