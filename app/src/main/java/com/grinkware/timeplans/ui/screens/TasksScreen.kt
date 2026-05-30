@@ -48,7 +48,7 @@ fun TasksScreen(viewModel: AppViewModel) {
     val showAddRevisionDialog = remember { mutableStateOf(false) }
 
     // Sorting state
-    var sortBy by remember { mutableStateOf("DUE_ASC") }
+    var sortBy by remember(viewModel.settings.value.tasksSortBy) { mutableStateOf(viewModel.settings.value.tasksSortBy) }
     val priorityWeight = mapOf("HIGH" to 0, "MEDIUM" to 1, "LOW" to 2)
 
     val filteredSortedTasks = remember(tasks, sortBy) {
@@ -117,7 +117,10 @@ fun TasksScreen(viewModel: AppViewModel) {
                         listOf("DUE_ASC" to "Due date (Soonest)", "DUE_DESC" to "Due date (Latest)", "PRIORITY" to "Priority").forEach { (option, label) ->
                             FilterChip(
                                 selected = sortBy == option,
-                                onClick = { sortBy = option },
+                                onClick = {
+                                    sortBy = option
+                                    viewModel.updateSetting("tasksSortBy", option)
+                                },
                                 label = { Text(label, fontSize = 10.sp) }
                             )
                         }
