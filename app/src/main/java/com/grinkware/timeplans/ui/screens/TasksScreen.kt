@@ -28,6 +28,7 @@ import com.grinkware.timeplans.data.TaskItem
 import com.grinkware.timeplans.ui.AppViewModel
 import com.grinkware.timeplans.ui.theme.LocalSpacing
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -59,7 +60,11 @@ fun TasksScreen(viewModel: AppViewModel) {
         }
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
@@ -147,18 +152,54 @@ fun TasksScreen(viewModel: AppViewModel) {
                         lessons = lessons,
                         spacing = spacing,
                         onToggle = { viewModel.toggleTask(it) },
-                        onDelete = { viewModel.deleteTask(it.id) }
+                        onDelete = { task ->
+                            viewModel.deleteTask(task.id)
+                            coroutineScope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "Homework deleted",
+                                    actionLabel = "Undo",
+                                    duration = SnackbarDuration.Short
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    viewModel.addTask(task)
+                                }
+                            }
+                        }
                     )
                     1 -> ExamList(
                         exams = exams,
                         spacing = spacing,
-                        onDelete = { viewModel.deleteExam(it) }
+                        onDelete = { exam ->
+                            viewModel.deleteExam(exam.id)
+                            coroutineScope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "Exam deleted",
+                                    actionLabel = "Undo",
+                                    duration = SnackbarDuration.Short
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    viewModel.addExam(exam)
+                                }
+                            }
+                        }
                     )
                     2 -> RevisionList(
                         tasks = filteredSortedTasks.filter { it.taskType == "REVISION" },
                         spacing = spacing,
                         onToggle = { viewModel.toggleTask(it) },
-                        onDelete = { viewModel.deleteTask(it.id) }
+                        onDelete = { task ->
+                            viewModel.deleteTask(task.id)
+                            coroutineScope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "Revision task deleted",
+                                    actionLabel = "Undo",
+                                    duration = SnackbarDuration.Short
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    viewModel.addTask(task)
+                                }
+                            }
+                        }
                     )
                 }
             }
@@ -352,7 +393,7 @@ fun HomeworkList(
 fun ExamList(
     exams: List<ExamItem>,
     spacing: com.grinkware.timeplans.ui.theme.Spacing,
-    onDelete: (Long) -> Unit
+    onDelete: (ExamItem) -> Unit
 ) {
     if (exams.isEmpty()) {
         EmptyState(text = "No upcoming exams scheduled", spacing = spacing)
@@ -363,7 +404,7 @@ fun ExamList(
             modifier = Modifier.fillMaxSize()
         ) {
             items(exams) { exam ->
-                ExamCard(exam = exam, spacing = spacing, onDelete = { onDelete(exam.id) })
+                ExamCard(exam = exam, spacing = spacing, onDelete = { onDelete(exam) })
             }
         }
     }

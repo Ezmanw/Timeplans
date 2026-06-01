@@ -4,3 +4,4 @@
 ## 2024-05-22 - Clear Completed Tasks Bulk Action
 **Learning:** Users who frequently complete tasks often clutter their lists. A "Clear Done" bulk action provides a quick way to clean up the interface, saving them from having to delete items one by one.
 **Action:** Implemented a bulk delete action for tasks that are marked as completed. The button only appears when completed tasks are present, keeping the UI clean.
+## 2024-06-01 - Snackbar Undo for Destructive Actions **Learning:** Adding Snackbar Undo for destructive actions in lists prevents accidental data loss and provides a better user experience without complex confirmation dialogs. **Action:** Added rememberCoroutineScope and SnackbarHostState to TasksScreen to provide instant undo for tasks and exams deletion.
