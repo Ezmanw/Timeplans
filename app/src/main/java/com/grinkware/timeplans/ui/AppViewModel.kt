@@ -36,7 +36,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val dashboardState = mutableStateOf(DashboardState())
 
     // Selected Day and Week for Timetable Screen
-    val selectedDay = mutableStateOf(1) // 1 = Mon, ..., 7 = Sun
+    val selectedDay = mutableStateOf(getCurrentDayOfWeek()) // 1 = Mon, ..., 7 = Sun
     val activeWeek = mutableStateOf("A") // "A" or "B"
     val manualWeekOverride = mutableStateOf<String?>(null)
 
@@ -355,16 +355,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val currentMin = hour * 60 + minute
 
         // Map DayOfWeek (Calendar.MONDAY is 2, etc.)
-        val sysDay = when (cal.get(Calendar.DAY_OF_WEEK)) {
-            Calendar.MONDAY -> 1
-            Calendar.TUESDAY -> 2
-            Calendar.WEDNESDAY -> 3
-            Calendar.THURSDAY -> 4
-            Calendar.FRIDAY -> 5
-            Calendar.SATURDAY -> 6
-            Calendar.SUNDAY -> 7
-            else -> 1
-        }
+        val sysDay = getCurrentDayOfWeek()
 
         // Active Week logic
         val weekStr = manualWeekOverride.value ?: run {
@@ -522,6 +513,20 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getTodayDateString(): String {
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+    }
+
+    fun getCurrentDayOfWeek(): Int {
+        val cal = Calendar.getInstance()
+        return when (cal.get(Calendar.DAY_OF_WEEK)) {
+            Calendar.MONDAY -> 1
+            Calendar.TUESDAY -> 2
+            Calendar.WEDNESDAY -> 3
+            Calendar.THURSDAY -> 4
+            Calendar.FRIDAY -> 5
+            Calendar.SATURDAY -> 6
+            Calendar.SUNDAY -> 7
+            else -> 1
+        }
     }
 
     private fun formatMinutesToHoursMins(minutes: Int): String {

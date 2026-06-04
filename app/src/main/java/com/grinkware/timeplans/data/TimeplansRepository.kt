@@ -420,6 +420,8 @@ class TimeplansRepository(context: Context) {
         var onboardingCompleted = false
         var todayWidgetOrder = "TIMELINE,COUNTDOWN,HERO,ATTENDANCE,INSIGHTS,DEADLINES"
         var todayWidgetVisibility = "TIMELINE,COUNTDOWN,HERO,ATTENDANCE,INSIGHTS,DEADLINES"
+        var tasksSortBy = "DUE_ASC"
+        var tasksTabIndex = 0
 
         while (cursor.moveToNext()) {
             val key = cursor.getString(0)
@@ -436,6 +438,8 @@ class TimeplansRepository(context: Context) {
                 "onboardingCompleted" -> onboardingCompleted = value == "1" || value == "true"
                 "todayWidgetOrder" -> todayWidgetOrder = value
                 "todayWidgetVisibility" -> todayWidgetVisibility = value
+                "tasksSortBy" -> tasksSortBy = value
+                "tasksTabIndex" -> tasksTabIndex = value.toIntOrNull() ?: 0
             }
         }
         cursor.close()
@@ -450,7 +454,9 @@ class TimeplansRepository(context: Context) {
             alarmLeadMinutes = alarmLeadMinutes,
             onboardingCompleted = onboardingCompleted,
             todayWidgetOrder = todayWidgetOrder,
-            todayWidgetVisibility = todayWidgetVisibility
+            todayWidgetVisibility = todayWidgetVisibility,
+            tasksSortBy = tasksSortBy,
+            tasksTabIndex = tasksTabIndex
         )
     }
 
