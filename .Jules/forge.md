@@ -8,3 +8,4 @@
 ## 2024-05-23 - Share Action for Tasks
 **Learning:** Users often need to share homework or revision schedules with classmates. Providing a simple share intent on task items is a high-value quick action that facilitates collaboration and saves manual copy-pasting.
 **Action:** Implemented a Share button on Homework and Revision tasks in the TasksScreen that launches an Android ACTION_SEND intent with formatted task details.
+## 2024-05-23 - [Settings Key-Value Persistence] **Learning:** Settings are persisted as key-value pairs in a SQLite table rather than explicit schema columns, allowing arbitrary new user preferences (like active tabs or sort order) to be added without a database migration. **Action:** Always add new settings to `AppSettings` data class and `getSettings()` mapping, and save using `updateSetting("key", value)` to avoid touching DB migrations.

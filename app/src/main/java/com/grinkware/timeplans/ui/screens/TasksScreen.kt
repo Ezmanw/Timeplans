@@ -42,7 +42,7 @@ fun TasksScreen(viewModel: AppViewModel) {
     val lessons = viewModel.lessons.value
     val spacing = LocalSpacing.current
 
-    var selectedTabIndex by remember { mutableStateOf(0) }
+    var selectedTabIndex by remember { mutableStateOf(viewModel.settings.value.tasksTabIndex) }
     val tabs = listOf("Homework", "Exams", "Revision")
 
     // Dialog state
@@ -51,7 +51,7 @@ fun TasksScreen(viewModel: AppViewModel) {
     val showAddRevisionDialog = remember { mutableStateOf(false) }
 
     // Sorting state
-    var sortBy by remember { mutableStateOf("DUE_ASC") }
+    var sortBy by remember { mutableStateOf(viewModel.settings.value.tasksSortBy) }
     val priorityWeight = mapOf("HIGH" to 0, "MEDIUM" to 1, "LOW" to 2)
 
     val filteredSortedTasks = remember(tasks, sortBy) {
@@ -92,7 +92,10 @@ fun TasksScreen(viewModel: AppViewModel) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
+                        onClick = {
+                            selectedTabIndex = index
+                            viewModel.updateSetting("tasksTabIndex", index.toString())
+                        },
                         text = { Text(title, fontWeight = FontWeight.Bold) }
                     )
                 }
@@ -120,7 +123,10 @@ fun TasksScreen(viewModel: AppViewModel) {
                         listOf("DUE_ASC" to "Due date (Soonest)", "DUE_DESC" to "Due date (Latest)", "PRIORITY" to "Priority").forEach { (option, label) ->
                             FilterChip(
                                 selected = sortBy == option,
-                                onClick = { sortBy = option },
+                                onClick = {
+                                    sortBy = option
+                                    viewModel.updateSetting("tasksSortBy", option)
+                                },
                                 label = { Text(label, fontSize = 10.sp) }
                             )
                         }
@@ -670,6 +676,7 @@ fun AddHomeworkDialog(
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val calendar = Calendar.getInstance()
+    calendar.add(Calendar.DAY_OF_YEAR, 1)
     val datePickerDialog = remember {
         android.app.DatePickerDialog(
             context,
@@ -807,12 +814,31 @@ fun AddExamDialog(
 ) {
     val spacing = LocalSpacing.current
     var subject by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf("2026-06-15") }
+    val defaultDateStr = remember {
+        val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 7) }
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+    }
+    var date by remember { mutableStateOf(defaultDateStr) }
     var time by remember { mutableStateOf("09:00") }
     var room by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
 
     val error = remember { mutableStateOf("") }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val calendar = Calendar.getInstance()
+    calendar.add(Calendar.DAY_OF_YEAR, 7)
+    val datePickerDialog = remember {
+        android.app.DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                date = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, dayOfMonth)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -836,6 +862,12 @@ fun AddExamDialog(
                     onValueChange = { date = it },
                     label = { Text("Exam Date (YYYY-MM-DD)*") },
                     singleLine = true,
+                    readOnly = true,
+                    trailingIcon = {
+                        IconButton(onClick = { datePickerDialog.show() }) {
+                            Icon(Icons.Default.DateRange, contentDescription = "Select Date")
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -891,10 +923,29 @@ fun AddRevisionDialog(
     val spacing = LocalSpacing.current
     var topic by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf("2026-05-20") }
+    val defaultDateStr = remember {
+        val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+    }
+    var date by remember { mutableStateOf(defaultDateStr) }
     var priority by remember { mutableStateOf("MEDIUM") }
 
     val error = remember { mutableStateOf("") }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val calendar = Calendar.getInstance()
+    calendar.add(Calendar.DAY_OF_YEAR, 1)
+    val datePickerDialog = remember {
+        android.app.DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                date = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, dayOfMonth)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -925,6 +976,12 @@ fun AddRevisionDialog(
                     onValueChange = { date = it },
                     label = { Text("Revision Date (YYYY-MM-DD)") },
                     singleLine = true,
+                    readOnly = true,
+                    trailingIcon = {
+                        IconButton(onClick = { datePickerDialog.show() }) {
+                            Icon(Icons.Default.DateRange, contentDescription = "Select Date")
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
