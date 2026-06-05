@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.*
@@ -54,11 +55,24 @@ fun TasksScreen(viewModel: AppViewModel) {
     var sortBy by remember { mutableStateOf("DUE_ASC") }
     val priorityWeight = mapOf("HIGH" to 0, "MEDIUM" to 1, "LOW" to 2)
 
-    val filteredSortedTasks = remember(tasks, sortBy) {
+    // Filtering state
+    var hideCompleted by remember { mutableStateOf(false) }
+    var filterLessonId by remember { mutableStateOf<Long?>(null) }
+    var showLessonFilter by remember { mutableStateOf(false) }
+
+    val filteredSortedTasks = remember(tasks, sortBy, hideCompleted, filterLessonId) {
+        var result = tasks
+        if (hideCompleted) {
+            result = result.filter { !it.isCompleted }
+        }
+        if (filterLessonId != null) {
+            result = result.filter { it.lessonId == filterLessonId }
+        }
+
         when (sortBy) {
-            "DUE_DESC" -> tasks.sortedByDescending { it.dueDate }
-            "PRIORITY" -> tasks.sortedWith(compareBy({ priorityWeight[it.priority] ?: 1 }, { it.dueDate }))
-            else -> tasks.sortedBy { it.dueDate }
+            "DUE_DESC" -> result.sortedByDescending { it.dueDate }
+            "PRIORITY" -> result.sortedWith(compareBy({ priorityWeight[it.priority] ?: 1 }, { it.dueDate }))
+            else -> result.sortedBy { it.dueDate }
         }
     }
 
@@ -116,6 +130,49 @@ fun TasksScreen(viewModel: AppViewModel) {
                         horizontalArrangement = Arrangement.spacedBy(spacing.small),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        FilterChip(
+                            selected = hideCompleted,
+                            onClick = { hideCompleted = !hideCompleted },
+                            label = { Text("Hide Done", fontSize = 10.sp) }
+                        )
+
+                        Box {
+                            val activeFilterName = if (filterLessonId == null) "All Subjects" else lessons.find { it.id == filterLessonId }?.name ?: "All Subjects"
+                            FilterChip(
+                                selected = filterLessonId != null,
+                                onClick = { showLessonFilter = true },
+                                label = { Text(activeFilterName, fontSize = 10.sp) },
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Select Subject",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            )
+                            DropdownMenu(
+                                expanded = showLessonFilter,
+                                onDismissRequest = { showLessonFilter = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("All Subjects") },
+                                    onClick = {
+                                        filterLessonId = null
+                                        showLessonFilter = false
+                                    }
+                                )
+                                lessons.distinctBy { it.name }.forEach { lesson ->
+                                    DropdownMenuItem(
+                                        text = { Text(lesson.name) },
+                                        onClick = {
+                                            filterLessonId = lesson.id
+                                            showLessonFilter = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
                         Text("Sort:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                         listOf("DUE_ASC" to "Due date (Soonest)", "DUE_DESC" to "Due date (Latest)", "PRIORITY" to "Priority").forEach { (option, label) ->
                             FilterChip(
