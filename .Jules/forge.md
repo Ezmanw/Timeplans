@@ -8,3 +8,6 @@
 ## 2024-05-23 - Share Action for Tasks
 **Learning:** Users often need to share homework or revision schedules with classmates. Providing a simple share intent on task items is a high-value quick action that facilitates collaboration and saves manual copy-pasting.
 **Action:** Implemented a Share button on Homework and Revision tasks in the TasksScreen that launches an Android ACTION_SEND intent with formatted task details.
+## 2025-02-20 - Persistent UI Preferences for Critical Views
+**Learning:** Users who rely on specific views (like sorting by priority) find it extremely frustrating when the UI state resets to the default (e.g. DUE_ASC) every time they restart the app or navigate back to the screen. Jetpack Compose's `remember { mutableStateOf() }` does not persist across app sessions.
+**Action:** Implemented a new `tasksSortBy` property in the AppSettings database so that the user's preferred sort option in `TasksScreen` is persistently stored and automatically applied when they revisit the screen, significantly reducing annoyance.
