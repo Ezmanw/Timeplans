@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.*
@@ -54,12 +56,18 @@ fun TasksScreen(viewModel: AppViewModel) {
     var sortBy by remember { mutableStateOf("DUE_ASC") }
     val priorityWeight = mapOf("HIGH" to 0, "MEDIUM" to 1, "LOW" to 2)
 
-    val filteredSortedTasks = remember(tasks, sortBy) {
-        when (sortBy) {
+    val pinnedTasksStr = viewModel.settings.value.pinnedTasks
+    val pinnedTaskIds = remember(pinnedTasksStr) {
+        pinnedTasksStr.split(",").filter { it.isNotEmpty() }.mapNotNull { it.toLongOrNull() }.toSet()
+    }
+
+    val filteredSortedTasks = remember(tasks, sortBy, pinnedTaskIds) {
+        val sorted = when (sortBy) {
             "DUE_DESC" -> tasks.sortedByDescending { it.dueDate }
             "PRIORITY" -> tasks.sortedWith(compareBy({ priorityWeight[it.priority] ?: 1 }, { it.dueDate }))
             else -> tasks.sortedBy { it.dueDate }
         }
+        sorted.sortedBy { if (pinnedTaskIds.contains(it.id)) 0 else 1 }
     }
 
     Scaffold(
@@ -149,7 +157,9 @@ fun TasksScreen(viewModel: AppViewModel) {
                         tasks = filteredSortedTasks.filter { it.taskType == "HOMEWORK" },
                         lessons = lessons,
                         spacing = spacing,
+                        pinnedTaskIds = pinnedTaskIds,
                         onToggle = { viewModel.toggleTask(it) },
+                        onTogglePin = { viewModel.toggleTaskPin(it.id) },
                         onDelete = { viewModel.deleteTask(it.id) }
                     )
                     1 -> ExamList(
@@ -160,7 +170,9 @@ fun TasksScreen(viewModel: AppViewModel) {
                     2 -> RevisionList(
                         tasks = filteredSortedTasks.filter { it.taskType == "REVISION" },
                         spacing = spacing,
+                        pinnedTaskIds = pinnedTaskIds,
                         onToggle = { viewModel.toggleTask(it) },
+                        onTogglePin = { viewModel.toggleTaskPin(it.id) },
                         onDelete = { viewModel.deleteTask(it.id) }
                     )
                 }
@@ -235,7 +247,9 @@ fun HomeworkList(
     tasks: List<TaskItem>,
     lessons: List<Lesson>,
     spacing: com.grinkware.timeplans.ui.theme.Spacing,
+    pinnedTaskIds: Set<Long>,
     onToggle: (TaskItem) -> Unit,
+    onTogglePin: (TaskItem) -> Unit,
     onDelete: (TaskItem) -> Unit
 ) {
     if (tasks.isEmpty()) {
@@ -339,6 +353,14 @@ fun HomeworkList(
 
                         Row {
                             val context = LocalContext.current
+                            val isPinned = pinnedTaskIds.contains(task.id)
+                            IconButton(onClick = { onTogglePin(task) }) {
+                                Icon(
+                                    imageVector = if (isPinned) Icons.Default.Star else Icons.Outlined.StarOutline,
+                                    contentDescription = if (isPinned) "Unpin Task" else "Pin Task",
+                                    tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             IconButton(onClick = {
                                 val details = if (task.description.isNotEmpty()) "\nDetails: ${task.description}" else ""
                                 val shareText = "Homework: ${task.title}\nDue: ${task.dueDate}$details"
@@ -507,7 +529,9 @@ fun ExamCard(
 fun RevisionList(
     tasks: List<TaskItem>,
     spacing: com.grinkware.timeplans.ui.theme.Spacing,
+    pinnedTaskIds: Set<Long>,
     onToggle: (TaskItem) -> Unit,
+    onTogglePin: (TaskItem) -> Unit,
     onDelete: (TaskItem) -> Unit
 ) {
     if (tasks.isEmpty()) {
@@ -594,6 +618,14 @@ fun RevisionList(
 
                         Row {
                             val context = LocalContext.current
+                            val isPinned = pinnedTaskIds.contains(task.id)
+                            IconButton(onClick = { onTogglePin(task) }) {
+                                Icon(
+                                    imageVector = if (isPinned) Icons.Default.Star else Icons.Outlined.StarOutline,
+                                    contentDescription = if (isPinned) "Unpin Task" else "Pin Task",
+                                    tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             IconButton(onClick = {
                                 val details = if (task.description.isNotEmpty()) "\nDetails: ${task.description}" else ""
                                 val shareText = "Revision: ${task.title}\nDate: ${task.dueDate}$details"
