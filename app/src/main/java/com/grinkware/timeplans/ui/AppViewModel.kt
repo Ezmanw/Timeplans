@@ -278,6 +278,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         refreshTasks()
     }
 
+    fun toggleTaskPin(taskId: Long) {
+        val currentPinned = settings.value.pinnedTasks.split(",").filter { it.isNotEmpty() }.toMutableSet()
+        val idStr = taskId.toString()
+        if (currentPinned.contains(idStr)) {
+            currentPinned.remove(idStr)
+        } else {
+            currentPinned.add(idStr)
+        }
+        updateSetting("pinnedTasks", currentPinned.joinToString(","))
+    }
+
     // Exams
     fun addExam(exam: ExamItem) {
         repository.insertExam(exam)
